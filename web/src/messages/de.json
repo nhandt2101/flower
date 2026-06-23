@@ -4,5 +4,92 @@
     "gallery": "Galerie",
     "comments": "Bewertungen",
     "contact": "Kontakt"
+  },
+  "hero": {
+    "eyebrow": "Floristik aus Leidenschaft",
+    "title": "Frische Blumen für besondere Anlässe",
+    "subtitle": "Von Hand gebunden und mit Sorgfalt gestaltet — jeder Strauß erzählt eine Geschichte.",
+    "ctaPrimary": "Galerie ansehen",
+    "ctaSecondary": "Geschäft anrufen",
+    "imageLabel": "Signatur-Strauß"
+  },
+  "occasions": {
+    "eyebrow": "Für jeden Moment",
+    "title": "Blumen für die Anlässe, die zählen",
+    "items": {
+      "wedding": {
+        "label": "Hochzeit",
+        "title": "Hochzeitsblumen",
+        "description": "Brautsträuße, Tischschmuck und florale Akzente, die Ihren großen Tag begleiten."
+      },
+      "birthday": {
+        "label": "Feste",
+        "title": "Geburtstag & Feiern",
+        "description": "Lebendige Arrangements für Geburtstage, Jubiläen und festliche Momente."
+      },
+      "funeral": {
+        "label": "Abschied",
+        "title": "Trauerfloristik",
+        "description": "Würdevolle Kränze und Gestecke, um in stillem Gedenken Anteil zu nehmen."
+      }
+    }
+  },
+  "about": {
+    "eyebrow": "Unser Geschäft",
+    "title": "Mit Hand und Herz gebunden",
+    "body": "In unserem Geschäft wählen wir jede Blume sorgfältig aus und binden sie frisch vor Ort. Wir glauben an saisonale Schönheit, ehrliches Handwerk und Sträuße, die so einzigartig sind wie der Anlass.",
+    "addressLabel": "Adresse",
+    "address": "Musterstraße 12, 10115 Berlin",
+    "hotlineLabel": "Hotline",
+    "hotline": "+49 30 1234 5678",
+    "hoursLabel": "Öffnungszeiten",
+    "hours": "Mo–Sa, 9–19 Uhr",
+    "imageLabel": "Im Geschäft"
+  },
+  "featured": {
+    "eyebrow": "Galerie",
+    "title": "Einige Momente aus unserem Geschäft",
+    "imageLabel": "Blumenfoto",
+    "cta": "Alle Bilder ansehen"
+  },
+  "testimonials": {
+    "eyebrow": "Bewertungen",
+    "title": "Was unsere Kunden sagen",
+    "items": {
+      "a": {
+        "quote": "Der Brautstrauß war atemberaubend und genau wie erträumt. Vielen Dank!",
+        "name": "Anna"
+      },
+      "b": {
+        "quote": "Wunderschöne Arrangements und ein herzlicher Service. Immer wieder gern.",
+        "name": "Minh"
+      },
+      "c": {
+        "quote": "Frische Blumen, geschmackvoll gebunden. Absolute Empfehlung.",
+        "name": "Lukas"
+      }
+    },
+    "cta": "Bewertungen ansehen und schreiben"
+  },
+  "visit": {
+    "eyebrow": "Kontakt & Anfahrt",
+    "title": "Besuchen Sie unser Geschäft",
+    "addressLabel": "Adresse",
+    "address": "Musterstraße 12, 10115 Berlin",
+    "hotlineLabel": "Hotline",
+    "hotline": "+49 30 1234 5678",
+    "hoursLabel": "Öffnungszeiten",
+    "hours": "Mo–Sa, 9–19 Uhr\nSonntag geschlossen",
+    "cta": "In Google Maps öffnen",
+    "mapLabel": "Karte"
+  },
+  "footer": {
+    "tagline": "Frische Blumen für besondere Anlässe, von Hand gebunden in Berlin.",
+    "address": "Musterstraße 12, 10115 Berlin",
+    "hotline": "+49 30 1234 5678",
+    "year": "2026",
+    "rights": "Alle Rechte vorbehalten.",
+    "imprint": "Impressum",
+    "privacy": "Datenschutz"
   }
 }

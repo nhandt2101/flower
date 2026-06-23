@@ -4,5 +4,92 @@
     "gallery": "Gallery",
     "comments": "Reviews",
     "contact": "Contact"
+  },
+  "hero": {
+    "eyebrow": "Floristry with passion",
+    "title": "Fresh flowers for special occasions",
+    "subtitle": "Hand-tied and arranged with care — every bouquet tells a story.",
+    "ctaPrimary": "View gallery",
+    "ctaSecondary": "Call the shop",
+    "imageLabel": "Signature bouquet"
+  },
+  "occasions": {
+    "eyebrow": "For every moment",
+    "title": "Flowers for the occasions that matter",
+    "items": {
+      "wedding": {
+        "label": "Wedding",
+        "title": "Wedding flowers",
+        "description": "Bridal bouquets, table pieces and floral accents to grace your big day."
+      },
+      "birthday": {
+        "label": "Celebrations",
+        "title": "Birthday & parties",
+        "description": "Vibrant arrangements for birthdays, anniversaries and festive moments."
+      },
+      "funeral": {
+        "label": "Farewell",
+        "title": "Funeral flowers",
+        "description": "Dignified wreaths and arrangements to share in quiet remembrance."
+      }
+    }
+  },
+  "about": {
+    "eyebrow": "Our shop",
+    "title": "Tied by hand and heart",
+    "body": "In our shop we choose each stem with care and tie every bouquet fresh on site. We believe in seasonal beauty, honest craft and arrangements as unique as the occasion.",
+    "addressLabel": "Address",
+    "address": "Musterstraße 12, 10115 Berlin",
+    "hotlineLabel": "Hotline",
+    "hotline": "+49 30 1234 5678",
+    "hoursLabel": "Opening hours",
+    "hours": "Mon–Sat, 9am–7pm",
+    "imageLabel": "Inside the shop"
+  },
+  "featured": {
+    "eyebrow": "Gallery",
+    "title": "A few moments from our shop",
+    "imageLabel": "Flower photo",
+    "cta": "View all photos"
+  },
+  "testimonials": {
+    "eyebrow": "Reviews",
+    "title": "What our customers say",
+    "items": {
+      "a": {
+        "quote": "The bridal bouquet was stunning and exactly as I dreamed. Thank you!",
+        "name": "Anna"
+      },
+      "b": {
+        "quote": "Beautiful arrangements and warm service. I keep coming back.",
+        "name": "Minh"
+      },
+      "c": {
+        "quote": "Fresh flowers, tastefully tied. Highly recommended.",
+        "name": "Lukas"
+      }
+    },
+    "cta": "View and leave a review"
+  },
+  "visit": {
+    "eyebrow": "Contact & directions",
+    "title": "Visit our shop",
+    "addressLabel": "Address",
+    "address": "Musterstraße 12, 10115 Berlin",
+    "hotlineLabel": "Hotline",
+    "hotline": "+49 30 1234 5678",
+    "hoursLabel": "Opening hours",
+    "hours": "Mon–Sat, 9am–7pm\nClosed Sunday",
+    "cta": "Open in Google Maps",
+    "mapLabel": "Map"
+  },
+  "footer": {
+    "tagline": "Fresh flowers for special occasions, hand-tied in Berlin.",
+    "address": "Musterstraße 12, 10115 Berlin",
+    "hotline": "+49 30 1234 5678",
+    "year": "2026",
+    "rights": "All rights reserved.",
+    "imprint": "Imprint",
+    "privacy": "Privacy"
   }
 }

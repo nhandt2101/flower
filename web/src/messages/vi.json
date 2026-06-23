@@ -4,5 +4,92 @@
     "gallery": "Thư viện",
     "comments": "Bình luận",
     "contact": "Liên hệ"
+  },
+  "hero": {
+    "eyebrow": "Nghệ thuật cắm hoa",
+    "title": "Hoa tươi cho những dịp đặc biệt",
+    "subtitle": "Bó bằng tay và chăm chút từng chi tiết — mỗi bó hoa kể một câu chuyện riêng.",
+    "ctaPrimary": "Xem hình ảnh",
+    "ctaSecondary": "Gọi cửa hàng",
+    "imageLabel": "Bó hoa đặc trưng"
+  },
+  "occasions": {
+    "eyebrow": "Cho mọi khoảnh khắc",
+    "title": "Hoa cho những dịp quan trọng",
+    "items": {
+      "wedding": {
+        "label": "Đám cưới",
+        "title": "Hoa đám cưới",
+        "description": "Hoa cầm tay cô dâu, hoa trang trí bàn tiệc và điểm nhấn cho ngày trọng đại."
+      },
+      "birthday": {
+        "label": "Tiệc",
+        "title": "Hoa sinh nhật & tiệc",
+        "description": "Những bó hoa rực rỡ cho sinh nhật, kỷ niệm và các dịp vui."
+      },
+      "funeral": {
+        "label": "Tiễn biệt",
+        "title": "Hoa đám ma",
+        "description": "Vòng hoa và lẵng hoa trang nghiêm để gửi gắm lời tiễn biệt."
+      }
+    }
+  },
+  "about": {
+    "eyebrow": "Về cửa hàng",
+    "title": "Bó bằng tay, gửi bằng tâm",
+    "body": "Tại cửa hàng, chúng tôi chọn từng cành hoa cẩn thận và bó tươi ngay tại chỗ. Chúng tôi tin vào vẻ đẹp theo mùa, sự tỉ mỉ chân thật và những bó hoa độc đáo như chính dịp của bạn.",
+    "addressLabel": "Địa chỉ",
+    "address": "Musterstraße 12, 10115 Berlin",
+    "hotlineLabel": "Hotline",
+    "hotline": "+49 30 1234 5678",
+    "hoursLabel": "Giờ mở cửa",
+    "hours": "Thứ 2–7, 9–19 giờ",
+    "imageLabel": "Không gian cửa hàng"
+  },
+  "featured": {
+    "eyebrow": "Hình ảnh",
+    "title": "Một vài khoảnh khắc tại cửa hàng",
+    "imageLabel": "Ảnh hoa",
+    "cta": "Xem toàn bộ ảnh"
+  },
+  "testimonials": {
+    "eyebrow": "Bình luận",
+    "title": "Khách hàng nói gì",
+    "items": {
+      "a": {
+        "quote": "Bó hoa cưới đẹp đến nghẹt thở và đúng như mình mơ ước. Cảm ơn cửa hàng!",
+        "name": "Anna"
+      },
+      "b": {
+        "quote": "Hoa đẹp, phục vụ tận tình. Mình sẽ còn quay lại nhiều lần.",
+        "name": "Minh"
+      },
+      "c": {
+        "quote": "Hoa tươi, cắm rất có gu. Rất đáng để giới thiệu.",
+        "name": "Lukas"
+      }
+    },
+    "cta": "Xem và để lại bình luận"
+  },
+  "visit": {
+    "eyebrow": "Liên hệ & chỉ đường",
+    "title": "Ghé thăm cửa hàng",
+    "addressLabel": "Địa chỉ",
+    "address": "Musterstraße 12, 10115 Berlin",
+    "hotlineLabel": "Hotline",
+    "hotline": "+49 30 1234 5678",
+    "hoursLabel": "Giờ mở cửa",
+    "hours": "Thứ 2–7, 9–19 giờ\nChủ nhật nghỉ",
+    "cta": "Mở Google Maps",
+    "mapLabel": "Bản đồ"
+  },
+  "footer": {
+    "tagline": "Hoa tươi cho những dịp đặc biệt, bó bằng tay tại Berlin.",
+    "address": "Musterstraße 12, 10115 Berlin",
+    "hotline": "+49 30 1234 5678",
+    "year": "2026",
+    "rights": "Bảo lưu mọi quyền.",
+    "imprint": "Thông tin pháp lý",
+    "privacy": "Quyền riêng tư"
   }
 }
