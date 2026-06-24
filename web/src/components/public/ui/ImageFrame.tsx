@@ -6,6 +6,11 @@ type ImageFrameProps = {
   className?: string;
   /** Enable subtle zoom on hover (for gallery/occasion tiles). */
   hover?: boolean;
+  /**
+   * "flat" drops the matted padding for an edge-to-edge tile (Pinterest-style
+   * masonry); "matted" keeps the signature silver double frame (default).
+   */
+  flat?: boolean;
 };
 
 /**
@@ -18,12 +23,17 @@ export function ImageFrame({
   aspect = "aspect-[4/3]",
   className = "",
   hover = false,
+  flat = false,
 }: ImageFrameProps) {
   return (
     <div
-      className={`rounded-sm bg-surface p-2 ring-1 ring-silver shadow-[0_1px_2px_rgba(0,0,0,0.04)] ${className}`}
+      className={`rounded-lg bg-surface ring-1 ring-silver ${
+        flat ? "" : "p-2 rounded-sm shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
+      } ${className}`}
     >
-      <div className={`group overflow-hidden rounded-sm ${aspect}`}>
+      <div
+        className={`group overflow-hidden ${flat ? "rounded-lg" : "rounded-sm"} ${aspect}`}
+      >
         <div
           className={`flex h-full w-full items-center justify-center bg-gradient-to-br from-silver-soft to-[#dfe1e2] transition-transform duration-700 ease-out ${
             hover ? "group-hover:scale-105" : ""

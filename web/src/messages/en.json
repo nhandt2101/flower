@@ -91,5 +91,88 @@
     "rights": "All rights reserved.",
     "imprint": "Imprint",
     "privacy": "Privacy"
+  },
+  "galleryPage": {
+    "eyebrow": "Gallery",
+    "title": "Our flowers & our shop",
+    "subtitle": "A selection of our work and moments from the shop.",
+    "imageLabel": "Flower photo",
+    "close": "Close",
+    "prev": "Previous",
+    "next": "Next"
+  },
+  "commentsPage": {
+    "eyebrow": "Reviews",
+    "title": "What our customers say",
+    "subtitle": "Read others' experiences and leave a review of your own.",
+    "formHeading": "Write a review",
+    "form": {
+      "name": "Name",
+      "email": "Email",
+      "emailHint": "Not shown publicly.",
+      "message": "Your review",
+      "captcha": "CAPTCHA",
+      "submit": "Submit",
+      "submitting": "Sending…",
+      "thanksTitle": "Thank you!",
+      "thanksBody": "Your review has been published.",
+      "again": "Write another"
+    },
+    "list": {
+      "shopReply": "Reply from the shop",
+      "count": "{count, plural, =0 {No reviews yet} one {# review} other {# reviews}}",
+      "loadMore": "Show {count} more",
+      "items": {
+        "a": {
+          "name": "Anna",
+          "date": "March 2026",
+          "text": "The bridal bouquet was stunning and exactly as I dreamed. Thank you!",
+          "reply": "Dear Anna, thank you so much — it was our pleasure!"
+        },
+        "b": {
+          "name": "Minh",
+          "date": "February 2026",
+          "text": "Beautiful arrangements and warm service. I keep coming back.",
+          "reply": ""
+        },
+        "c": {
+          "name": "Lukas",
+          "date": "January 2026",
+          "text": "Fresh flowers, tastefully tied. Highly recommended.",
+          "reply": "Thank you, Lukas! See you soon."
+        },
+        "d": {
+          "name": "Sophie",
+          "date": "December 2025",
+          "text": "Wonderful funeral flowers during a hard time — very thoughtful.",
+          "reply": ""
+        },
+        "e": {
+          "name": "Jonas",
+          "date": "November 2025",
+          "text": "A spontaneous birthday bouquet — ready in five minutes and gorgeous.",
+          "reply": "Thank you, Jonas! So glad you liked it."
+        },
+        "f": {
+          "name": "Mai",
+          "date": "October 2025",
+          "text": "Great selection and very friendly advice. Highly recommended!",
+          "reply": ""
+        }
+      }
+    }
+  },
+  "contactPage": {
+    "eyebrow": "Contact & directions",
+    "title": "Visit us",
+    "subtitle": "We look forward to welcoming you in our shop.",
+    "addressLabel": "Address",
+    "address": "Musterstraße 12, 10115 Berlin",
+    "hotlineLabel": "Hotline",
+    "hotline": "+49 30 1234 5678",
+    "hoursLabel": "Opening hours",
+    "hours": "Mon–Sat, 9am–7pm\nClosed Sunday",
+    "cta": "Open in Google Maps",
+    "mapLabel": "Map"
   }
 }

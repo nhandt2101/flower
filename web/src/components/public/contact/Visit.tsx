@@ -1,9 +1,9 @@
-import { useTranslations, useLocale } from "next-intl";
+import { useTranslations } from "next-intl";
 import { Reveal } from "../ui/Reveal";
+import { MapEmbed } from "./MapEmbed";
 
 export function Visit() {
   const t = useTranslations("visit");
-  const locale = useLocale();
 
   return (
     <section
@@ -58,22 +58,7 @@ export function Visit() {
           </Reveal>
 
           <Reveal delay={120}>
-            {/*
-              Keyless Google Maps embed (output=embed). Before launch, replace
-              `mapQuery` with the shop's real address, or paste the iframe from
-              Google Maps → Share → Embed a map.
-            */}
-            <div className="rounded-sm bg-surface p-2 ring-1 ring-silver">
-              <iframe
-                title={t("mapLabel")}
-                src={`https://maps.google.com/maps?q=${encodeURIComponent(
-                  t("address"),
-                )}&hl=${locale}&z=15&output=embed`}
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-                className="aspect-[4/3] w-full rounded-sm border-0 grayscale-[0.2]"
-              />
-            </div>
+            <MapEmbed query={t("address")} title={t("mapLabel")} />
           </Reveal>
         </div>
       </div>

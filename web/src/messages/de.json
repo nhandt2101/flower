@@ -91,5 +91,88 @@
     "rights": "Alle Rechte vorbehalten.",
     "imprint": "Impressum",
     "privacy": "Datenschutz"
+  },
+  "galleryPage": {
+    "eyebrow": "Galerie",
+    "title": "Unsere Blumen & unser Geschäft",
+    "subtitle": "Eine Auswahl unserer Arbeiten und Momente aus dem Laden.",
+    "imageLabel": "Blumenfoto",
+    "close": "Schließen",
+    "prev": "Vorheriges",
+    "next": "Nächstes"
+  },
+  "commentsPage": {
+    "eyebrow": "Bewertungen",
+    "title": "Was unsere Kunden sagen",
+    "subtitle": "Lesen Sie Erfahrungen und hinterlassen Sie selbst eine Bewertung.",
+    "formHeading": "Bewertung schreiben",
+    "form": {
+      "name": "Name",
+      "email": "E-Mail",
+      "emailHint": "Wird nicht öffentlich angezeigt.",
+      "message": "Ihre Bewertung",
+      "captcha": "CAPTCHA",
+      "submit": "Absenden",
+      "submitting": "Wird gesendet…",
+      "thanksTitle": "Vielen Dank!",
+      "thanksBody": "Ihre Bewertung wurde veröffentlicht.",
+      "again": "Weitere schreiben"
+    },
+    "list": {
+      "shopReply": "Antwort des Geschäfts",
+      "count": "{count, plural, =0 {Noch keine Bewertungen} one {# Bewertung} other {# Bewertungen}}",
+      "loadMore": "Weitere {count} anzeigen",
+      "items": {
+        "a": {
+          "name": "Anna",
+          "date": "März 2026",
+          "text": "Der Brautstrauß war atemberaubend und genau wie erträumt. Vielen Dank!",
+          "reply": "Liebe Anna, vielen Dank — es war uns eine Freude!"
+        },
+        "b": {
+          "name": "Minh",
+          "date": "Februar 2026",
+          "text": "Wunderschöne Arrangements und ein herzlicher Service. Immer wieder gern.",
+          "reply": ""
+        },
+        "c": {
+          "name": "Lukas",
+          "date": "Januar 2026",
+          "text": "Frische Blumen, geschmackvoll gebunden. Absolute Empfehlung.",
+          "reply": "Vielen Dank, Lukas! Bis bald."
+        },
+        "d": {
+          "name": "Sophie",
+          "date": "Dezember 2025",
+          "text": "Tolle Trauerfloristik in einer schweren Zeit — sehr einfühlsam.",
+          "reply": ""
+        },
+        "e": {
+          "name": "Jonas",
+          "date": "November 2025",
+          "text": "Spontaner Geburtstagsstrauß — in fünf Minuten fertig und wunderschön.",
+          "reply": "Danke, Jonas! Freut uns sehr."
+        },
+        "f": {
+          "name": "Mai",
+          "date": "Oktober 2025",
+          "text": "Tolle Auswahl und sehr freundliche Beratung. Sehr empfehlenswert!",
+          "reply": ""
+        }
+      }
+    }
+  },
+  "contactPage": {
+    "eyebrow": "Kontakt & Anfahrt",
+    "title": "Besuchen Sie uns",
+    "subtitle": "Wir freuen uns auf Ihren Besuch in unserem Geschäft.",
+    "addressLabel": "Adresse",
+    "address": "Musterstraße 12, 10115 Berlin",
+    "hotlineLabel": "Hotline",
+    "hotline": "+49 30 1234 5678",
+    "hoursLabel": "Öffnungszeiten",
+    "hours": "Mo–Sa, 9–19 Uhr\nSonntag geschlossen",
+    "cta": "In Google Maps öffnen",
+    "mapLabel": "Karte"
   }
 }

@@ -91,5 +91,88 @@
     "rights": "Bảo lưu mọi quyền.",
     "imprint": "Thông tin pháp lý",
     "privacy": "Quyền riêng tư"
+  },
+  "galleryPage": {
+    "eyebrow": "Hình ảnh",
+    "title": "Hoa & không gian cửa hàng",
+    "subtitle": "Một vài tác phẩm và khoảnh khắc tại cửa hàng.",
+    "imageLabel": "Ảnh hoa",
+    "close": "Đóng",
+    "prev": "Trước",
+    "next": "Tiếp"
+  },
+  "commentsPage": {
+    "eyebrow": "Bình luận",
+    "title": "Khách hàng nói gì",
+    "subtitle": "Đọc trải nghiệm của khách và để lại bình luận của bạn.",
+    "formHeading": "Viết bình luận",
+    "form": {
+      "name": "Tên",
+      "email": "Email",
+      "emailHint": "Không hiển thị công khai.",
+      "message": "Nội dung bình luận",
+      "captcha": "CAPTCHA",
+      "submit": "Gửi",
+      "submitting": "Đang gửi…",
+      "thanksTitle": "Cảm ơn bạn!",
+      "thanksBody": "Bình luận của bạn đã được đăng.",
+      "again": "Viết bình luận khác"
+    },
+    "list": {
+      "shopReply": "Phản hồi của cửa hàng",
+      "count": "{count, plural, other {# bình luận}}",
+      "loadMore": "Xem thêm {count} bình luận",
+      "items": {
+        "a": {
+          "name": "Anna",
+          "date": "Tháng 3, 2026",
+          "text": "Bó hoa cưới đẹp đến nghẹt thở và đúng như mình mơ ước. Cảm ơn cửa hàng!",
+          "reply": "Cảm ơn Anna nhiều — cửa hàng rất vui được đồng hành!"
+        },
+        "b": {
+          "name": "Minh",
+          "date": "Tháng 2, 2026",
+          "text": "Hoa đẹp, phục vụ tận tình. Mình sẽ còn quay lại nhiều lần.",
+          "reply": ""
+        },
+        "c": {
+          "name": "Lukas",
+          "date": "Tháng 1, 2026",
+          "text": "Hoa tươi, cắm rất có gu. Rất đáng để giới thiệu.",
+          "reply": "Cảm ơn Lukas! Hẹn gặp lại bạn."
+        },
+        "d": {
+          "name": "Sophie",
+          "date": "Tháng 12, 2025",
+          "text": "Hoa tang lễ rất chu đáo trong lúc khó khăn — cảm ơn sự tinh tế.",
+          "reply": ""
+        },
+        "e": {
+          "name": "Jonas",
+          "date": "Tháng 11, 2025",
+          "text": "Bó hoa sinh nhật đặt gấp — năm phút là xong mà đẹp mê.",
+          "reply": "Cảm ơn Jonas! Cửa hàng rất vui."
+        },
+        "f": {
+          "name": "Mai",
+          "date": "Tháng 10, 2025",
+          "text": "Hoa nhiều lựa chọn, tư vấn rất thân thiện. Rất đáng giới thiệu!",
+          "reply": ""
+        }
+      }
+    }
+  },
+  "contactPage": {
+    "eyebrow": "Liên hệ & chỉ đường",
+    "title": "Ghé thăm chúng tôi",
+    "subtitle": "Rất mong được đón bạn tại cửa hàng.",
+    "addressLabel": "Địa chỉ",
+    "address": "Musterstraße 12, 10115 Berlin",
+    "hotlineLabel": "Hotline",
+    "hotline": "+49 30 1234 5678",
+    "hoursLabel": "Giờ mở cửa",
+    "hours": "Thứ 2–7, 9–19 giờ\nChủ nhật nghỉ",
+    "cta": "Mở Google Maps",
+    "mapLabel": "Bản đồ"
   }
 }
