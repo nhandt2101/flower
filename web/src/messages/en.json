@@ -174,5 +174,24 @@
     "hours": "Mon–Sat, 9am–7pm\nClosed Sunday",
     "cta": "Open in Google Maps",
     "mapLabel": "Map"
+  },
+  "meta": {
+    "siteName": "Blütenhaus",
+    "default": {
+      "title": "Blütenhaus — Fresh flowers in Berlin",
+      "description": "Hand-tied flowers for weddings, birthdays and funerals. Visit our flower shop in Berlin."
+    },
+    "gallery": {
+      "title": "Gallery",
+      "description": "A selection of our floral work and moments from the shop."
+    },
+    "comments": {
+      "title": "Reviews",
+      "description": "Read customer reviews and leave one of your own."
+    },
+    "contact": {
+      "title": "Contact",
+      "description": "Address, opening hours and directions to our flower shop in Berlin."
+    }
   }
 }

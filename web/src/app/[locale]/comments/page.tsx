@@ -1,8 +1,25 @@
+import type { Metadata } from "next";
 import { useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
 import { PageShell } from "@/components/public/ui/PageShell";
 import { PageIntro } from "@/components/public/ui/PageIntro";
 import { CommentList } from "@/components/public/comments/CommentList";
 import { CommentForm } from "@/components/public/comments/CommentForm";
+import { buildAlternates } from "@/lib/site";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "meta" });
+  return {
+    title: t("comments.title"),
+    description: t("comments.description"),
+    alternates: buildAlternates(locale, "/comments"),
+  };
+}
 
 export default function CommentsPage() {
   const t = useTranslations("commentsPage");

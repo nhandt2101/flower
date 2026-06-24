@@ -174,5 +174,24 @@
     "hours": "Mo–Sa, 9–19 Uhr\nSonntag geschlossen",
     "cta": "In Google Maps öffnen",
     "mapLabel": "Karte"
+  },
+  "meta": {
+    "siteName": "Blütenhaus",
+    "default": {
+      "title": "Blütenhaus — Frische Blumen in Berlin",
+      "description": "Von Hand gebundene Blumen für Hochzeiten, Geburtstage und Trauerfälle. Besuchen Sie unser Blumengeschäft in Berlin."
+    },
+    "gallery": {
+      "title": "Galerie",
+      "description": "Eine Auswahl unserer floralen Arbeiten und Momente aus dem Geschäft."
+    },
+    "comments": {
+      "title": "Bewertungen",
+      "description": "Lesen Sie Kundenbewertungen und hinterlassen Sie Ihre eigene."
+    },
+    "contact": {
+      "title": "Kontakt",
+      "description": "Adresse, Öffnungszeiten und Anfahrt zu unserem Blumengeschäft in Berlin."
+    }
   }
 }

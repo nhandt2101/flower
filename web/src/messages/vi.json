@@ -174,5 +174,24 @@
     "hours": "Thứ 2–7, 9–19 giờ\nChủ nhật nghỉ",
     "cta": "Mở Google Maps",
     "mapLabel": "Bản đồ"
+  },
+  "meta": {
+    "siteName": "Blütenhaus",
+    "default": {
+      "title": "Blütenhaus — Hoa tươi tại Berlin",
+      "description": "Hoa bó tay cho đám cưới, sinh nhật và tang lễ. Ghé thăm cửa hàng hoa của chúng tôi tại Berlin."
+    },
+    "gallery": {
+      "title": "Thư viện",
+      "description": "Một vài tác phẩm hoa và khoảnh khắc tại cửa hàng."
+    },
+    "comments": {
+      "title": "Bình luận",
+      "description": "Đọc đánh giá của khách và để lại bình luận của bạn."
+    },
+    "contact": {
+      "title": "Liên hệ",
+      "description": "Địa chỉ, giờ mở cửa và chỉ đường đến cửa hàng hoa tại Berlin."
+    }
   }
 }
