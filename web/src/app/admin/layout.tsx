@@ -3,10 +3,9 @@ export default function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // TODO: Cognito auth guard
   return (
-    <html lang="de">
-      <body>{children}</body>
+    <html lang="en">
+      <body className="bg-slate-50 text-slate-900">{children}</body>
     </html>
   );
 }
