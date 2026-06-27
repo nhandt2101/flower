@@ -1,22 +1,44 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { updatePassword } from "aws-amplify/auth";
 import AdminGuard from "@/components/admin/AdminGuard";
 import AdminShell from "@/components/admin/AdminShell";
-import { clearAdminSession, getAdminSession } from "@/lib/adminAuth";
+import { clearAdminSession, getAdminSession, type AdminSession } from "@/lib/adminAuth";
+import "@/lib/amplify-config";
 
 export default function AdminAccountPage() {
   const router = useRouter();
-  const session = getAdminSession();
+  const [session, setSession] = useState<AdminSession | null>(null);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [message, setMessage] = useState("");
+  const [isUpdating, setIsUpdating] = useState(false);
 
-  const handlePasswordUpdate = () => {
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadSession() {
+      const currentSession = await getAdminSession();
+      if (mounted) {
+        setSession(currentSession);
+      }
+    }
+
+    void loadSession();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const handlePasswordUpdate = async () => {
+    setMessage("");
+
     if (!currentPassword || !newPassword || !confirmPassword) {
-      setMessage("Vui lòng điền đủ thông tin.");
+      setMessage("Vui lòng điền đầy đủ thông tin.");
       return;
     }
 
@@ -25,11 +47,22 @@ export default function AdminAccountPage() {
       return;
     }
 
-    setMessage("Mật khẩu đã được cập nhật tạm thời trong giao diện.");
+    setIsUpdating(true);
+    try {
+      await updatePassword({ oldPassword: currentPassword, newPassword });
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setMessage("Mật khẩu đã được cập nhật.");
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Không thể cập nhật mật khẩu.");
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
-  const handleLogout = () => {
-    clearAdminSession();
+  const handleLogout = async () => {
+    await clearAdminSession();
     router.push("/admin/login");
   };
 
@@ -76,9 +109,10 @@ export default function AdminAccountPage() {
               <button
                 type="button"
                 onClick={handlePasswordUpdate}
-                className="inline-flex items-center justify-center rounded-3xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-700"
+                disabled={isUpdating}
+                className="inline-flex items-center justify-center rounded-3xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Cập nhật mật khẩu
+                {isUpdating ? "Đang cập nhật..." : "Cập nhật mật khẩu"}
               </button>
               <button
                 type="button"

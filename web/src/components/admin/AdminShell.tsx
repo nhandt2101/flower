@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import type { ReactNode } from "react";
-import { clearAdminSession, getAdminSession } from "@/lib/adminAuth";
+import { useEffect, useState, type ReactNode } from "react";
+import { clearAdminSession, getAdminSession, type AdminSession } from "@/lib/adminAuth";
 
 const items = [
   { href: "/admin", label: "Dashboard" },
@@ -16,7 +16,24 @@ const items = [
 export default function AdminShell({ title, children }: { title: string; children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const session = getAdminSession();
+  const [session, setSession] = useState<AdminSession | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadSession() {
+      const currentSession = await getAdminSession();
+      if (mounted) {
+        setSession(currentSession);
+      }
+    }
+
+    void loadSession();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -57,8 +74,8 @@ export default function AdminShell({ title, children }: { title: string; childre
             <p className="mt-1 text-xs text-muted">{session?.email ?? "admin@shop.com"}</p>
             <div className="mt-4">
               <button
-                onClick={() => {
-                  clearAdminSession();
+                onClick={async () => {
+                  await clearAdminSession();
                   router.push("/admin/login");
                 }}
                 className="inline-flex items-center rounded-full bg-accent px-3 py-2 text-sm font-semibold text-background transition hover:bg-accent-hover"

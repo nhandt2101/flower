@@ -60,7 +60,6 @@ Lambda: **verify CAPTCHA** (hCaptcha/Turnstile) → validate định dạng emai
 Giới hạn kích thước file enforce ở bước 1 (hiện tài liệu ghi tối đa 5MB/ảnh).
 
 ## Ghi chú bảo mật
-- Auth admin frontend hiện là **demo localStorage** (`lib/adminAuth.ts`) — phải
-  thay bằng Cognito thật; token Cognito truyền vào tham số `token` của các hàm admin.
+- Auth admin frontend dùng AWS Cognito qua Amplify (`lib/adminAuth.ts`); access token Cognito truyền vào tham số `token` của các hàm admin.
 - Email bình luận chỉ xuất hiện ở endpoint `/admin/*`, không bao giờ ở public.
 - CAPTCHA verify **bắt buộc** ở server trước khi ghi, không tin client.

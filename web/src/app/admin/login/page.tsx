@@ -2,44 +2,58 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { getAdminSession, setAdminSession } from "@/lib/adminAuth";
+import { getAdminSession } from "@/lib/adminAuth";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function AdminLoginPage() {
   const router = useRouter();
+  const { signIn } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    if (getAdminSession()) {
-      router.replace("/admin");
+    let mounted = true;
+
+    async function redirectIfSignedIn() {
+      const session = await getAdminSession();
+      if (mounted && session) {
+        router.replace("/admin");
+      }
     }
+
+    void redirectIfSignedIn();
+
+    return () => {
+      mounted = false;
+    };
   }, [router]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
+
     if (!email || !password) {
       setError("Vui lòng nhập email và mật khẩu.");
       return;
     }
 
-    if (password.length < 6) {
-      setError("Mật khẩu phải có ít nhất 6 ký tự.");
-      return;
-    }
-
     setIsLoading(true);
-    setTimeout(() => {
-      setAdminSession({
-        token: "demo-admin-token",
-        email,
-        name: "Quản trị viên",
-      });
+    try {
+      const result = await signIn(email, password);
+
+      if (result.isSignedIn) {
+        router.push("/admin");
+        return;
+      }
+
+      setError("Tài khoản cần hoàn tất bước xác thực tiếp theo trong Cognito.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Đăng nhập không thành công.");
+    } finally {
       setIsLoading(false);
-      router.push("/admin");
-    }, 400);
+    }
   };
 
   return (
@@ -81,7 +95,7 @@ export default function AdminLoginPage() {
             disabled={isLoading}
             className="inline-flex w-full items-center justify-center rounded-3xl bg-accent px-4 py-3 text-sm font-semibold text-background shadow-sm transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isLoading ? "Đang đăng nhập…" : "Đăng nhập"}
+            {isLoading ? "Đang đăng nhập..." : "Đăng nhập"}
           </button>
         </form>
       </div>

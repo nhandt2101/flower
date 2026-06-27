@@ -1,37 +1,45 @@
-export const ADMIN_SESSION_KEY = "flower-admin-session";
+import {
+  fetchAuthSession,
+  fetchUserAttributes,
+  getCurrentUser,
+  signOut,
+} from "aws-amplify/auth";
+import "@/lib/amplify-config";
 
 export type AdminSession = {
   token: string;
   email: string;
   name: string;
+  username: string;
+  userId: string;
 };
 
-function hasWindow() {
-  return typeof window !== "undefined";
-}
-
-export function getAdminSession(): AdminSession | null {
-  if (!hasWindow()) return null;
-  const raw = window.localStorage.getItem(ADMIN_SESSION_KEY);
-  if (!raw) return null;
+export async function getAdminSession(): Promise<AdminSession | null> {
   try {
-    return JSON.parse(raw) as AdminSession;
+    const [currentUser, attributes, session] = await Promise.all([
+      getCurrentUser(),
+      fetchUserAttributes(),
+      fetchAuthSession(),
+    ]);
+    const email = attributes.email ?? currentUser.signInDetails?.loginId ?? currentUser.username;
+
+    return {
+      token: session.tokens?.accessToken?.toString() ?? "",
+      email,
+      name: attributes.name ?? email,
+      username: currentUser.username,
+      userId: currentUser.userId,
+    };
   } catch {
     return null;
   }
 }
 
-export function setAdminSession(session: AdminSession) {
-  if (!hasWindow()) return;
-  window.localStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify(session));
+export async function clearAdminSession() {
+  await signOut();
 }
 
-export function clearAdminSession() {
-  if (!hasWindow()) return;
-  window.localStorage.removeItem(ADMIN_SESSION_KEY);
-}
-
-export function isAdminAuthenticated() {
-  const s = getAdminSession();
+export async function isAdminAuthenticated() {
+  const s = await getAdminSession();
   return Boolean(s && s.token);
 }
