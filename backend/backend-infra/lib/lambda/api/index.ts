@@ -1,39 +1,55 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import {
+  DeleteCommand,
   DynamoDBDocumentClient,
+  GetCommand,
   PutCommand,
   QueryCommand,
   UpdateCommand,
-  DeleteCommand,
 } from "@aws-sdk/lib-dynamodb";
-
+import { DeleteObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { randomUUID } from "crypto";
 import jwt from "jsonwebtoken";
 import jwksClient from "jwks-rsa";
 
-// ===================== CONFIG =====================
-const TABLE_NAME = process.env.TABLE_NAME!;
-const USER_POOL_ID = process.env.USER_POOL_ID!;
+const TABLE_NAME = requireEnv("TABLE_NAME");
+const USER_POOL_ID = requireEnv("USER_POOL_ID");
+const TURNSTILE_SECRET = requireEnv("TURNSTILE_SECRET");
+const BUCKET = requireEnv("BUCKET");
 const REGION = process.env.AWS_REGION || "eu-central-1";
-const TURNSTILE_SECRET = process.env.TURNSTILE_SECRET!;
+const UPLOADS_PREFIX = process.env.UPLOADS_PREFIX ?? "uploads/";
+const PUBLIC_PREFIX = process.env.PUBLIC_PREFIX ?? "public/";
+const MAX_UPLOAD_BYTES = Number(process.env.MAX_UPLOAD_BYTES ?? "5242880");
 
-const ddb = DynamoDBDocumentClient.from(
-  new DynamoDBClient({ region: REGION })
-);
+const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({ region: REGION }));
+const s3 = new S3Client({ region: REGION });
 
-// ===================== JWKS =====================
+type CommentStatus = "visible" | "hidden";
+type ImageCategory = "wedding" | "birthday" | "funeral" | "other";
+type JsonObject = Record<string, unknown>;
+
+const validCommentStatuses = new Set<CommentStatus>(["visible", "hidden"]);
+const validImageCategories = new Set<ImageCategory>([
+  "wedding",
+  "birthday",
+  "funeral",
+  "other",
+]);
+const allowedImageTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+
 const client = jwksClient({
   jwksUri: `https://cognito-idp.${REGION}.amazonaws.com/${USER_POOL_ID}/.well-known/jwks.json`,
 });
 
-function getKey(header: any, callback: any) {
-  client.getSigningKey(header.kid, (err, key: any) => {
-    const signingKey = key.getPublicKey();
-    callback(null, signingKey);
+function getKey(header: jwt.JwtHeader, callback: jwt.SigningKeyCallback) {
+  client.getSigningKey(header.kid, (err, key) => {
+    if (err) return callback(err);
+    callback(null, key?.getPublicKey());
   });
 }
 
-function verifyToken(token: string): Promise<any> {
+function verifyToken(token: string): Promise<unknown> {
   return new Promise((resolve, reject) => {
     jwt.verify(
       token,
@@ -44,13 +60,14 @@ function verifyToken(token: string): Promise<any> {
       (err, decoded) => {
         if (err) return reject(err);
         resolve(decoded);
-      }
+      },
     );
   });
 }
 
-// ===================== CAPTCHA =====================
 async function verifyCaptcha(token: string): Promise<boolean> {
+  if (!token) return false;
+
   const res = await fetch(
     "https://challenges.cloudflare.com/turnstile/v0/siteverify",
     {
@@ -60,27 +77,31 @@ async function verifyCaptcha(token: string): Promise<boolean> {
         secret: TURNSTILE_SECRET,
         response: token,
       }),
-    }
+    },
   );
 
-  const data = (await res.json()) as { success: boolean };
-  return data.success === true;
+  const data: unknown = await res.json();
+  return isRecord(data) && data.success === true;
 }
 
-// ===================== RESPONSE =====================
-function response(statusCode: number, body: any) {
+function ok(statusCode: number, body: unknown = {}) {
   return {
     statusCode,
     headers: {
       "content-type": "application/json",
       "access-control-allow-origin": "*",
+      "access-control-allow-headers": "content-type,authorization",
+      "access-control-allow-methods": "GET,POST,PATCH,DELETE,OPTIONS",
     },
     body: JSON.stringify(body),
   };
 }
 
-// ===================== CURSOR =====================
-function encodeCursor(lastKey?: any) {
+function error(statusCode: number, code: string, message: string) {
+  return ok(statusCode, { error: { code, message } });
+}
+
+function encodeCursor(lastKey?: Record<string, unknown>) {
   if (!lastKey) return null;
   return Buffer.from(JSON.stringify(lastKey)).toString("base64");
 }
@@ -90,32 +111,104 @@ function parseCursor(cursor?: string) {
   return JSON.parse(Buffer.from(cursor, "base64").toString("utf-8"));
 }
 
-// ===================== HANDLER =====================
+function isRecord(value: unknown): value is JsonObject {
+  return typeof value === "object" && value !== null;
+}
+
+function bodyString(body: JsonObject, key: string) {
+  const value = body[key];
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function publicComment(item: Record<string, any>) {
+  return {
+    id: item.id,
+    name: item.name,
+    content: item.content,
+    createdAt: item.createdAt,
+    reply: item.replyContent
+      ? {
+          content: item.replyContent,
+          createdAt: item.replyCreatedAt,
+        }
+      : undefined,
+  };
+}
+
+function adminComment(item: Record<string, any>) {
+  return {
+    ...publicComment(item),
+    email: item.email,
+    status: item.status,
+  };
+}
+
+function galleryImage(item: Record<string, any>) {
+  return {
+    id: item.id,
+    url: item.url,
+    thumbUrl: item.thumbUrl,
+    category: item.category,
+    width: item.width,
+    height: item.height,
+    alt: item.alt,
+  };
+}
+
+function adminImage(item: Record<string, any>) {
+  return {
+    ...galleryImage(item),
+    objectKey: item.objectKey,
+    createdAt: item.createdAt,
+    sizeBytes: item.sizeBytes,
+  };
+}
+
+async function findItemById(kind: "COMMENT" | "IMAGE", id: string) {
+  const res = await ddb.send(
+    new QueryCommand({
+      TableName: TABLE_NAME,
+      KeyConditionExpression: "PK = :pk",
+      FilterExpression: "id = :id",
+      ExpressionAttributeValues: {
+        ":pk": kind,
+        ":id": id,
+      },
+    }),
+  );
+  return res.Items?.[0];
+}
+
+function imageKeyFromObjectKey(objectKey: string, imageId: string) {
+  if (!objectKey.startsWith(UPLOADS_PREFIX)) return null;
+  const fileName = objectKey.slice(UPLOADS_PREFIX.length);
+  const suffix = `#${imageId}`;
+  if (!fileName.endsWith(suffix)) return null;
+  const createdAt = fileName.slice(0, -suffix.length);
+  return { PK: "IMAGE", SK: `${createdAt}#${imageId}`, createdAt };
+}
+
 export const handler = async (event: any) => {
   try {
     const method = event.requestContext.http.method;
     const path = event.rawPath;
 
+    if (method === "OPTIONS") return ok(204);
+
     const body = event.body ? JSON.parse(event.body) : {};
     const query = event.queryStringParameters || {};
 
-    const authHeader = event.headers?.authorization || "";
-    const token = authHeader.replace("Bearer ", "");
-
-    const isAdmin = path.startsWith("/admin");
-
-    let user: any = null;
-
-    if (isAdmin) {
-      if (!token) {
-        return response(401, { error: "Missing token" });
-      }
-      user = await verifyToken(token);
+    if (!isRecord(body)) {
+      return error(400, "invalid_body", "JSON body must be an object");
     }
 
-    // ======================================================
-    // PUBLIC: GET COMMENTS (FIXED GSI byStatus)
-    // ======================================================
+    if (path.startsWith("/admin")) {
+      const authHeader = event.headers?.authorization || "";
+      const token = authHeader.replace(/^Bearer\s+/i, "");
+      if (!token) return error(401, "missing_token", "Missing bearer token");
+      await verifyToken(token);
+    }
+
     if (method === "GET" && path === "/comments") {
       const limit = Number(query.limit || 10);
       const cursor = parseCursor(query.cursor);
@@ -130,199 +223,335 @@ export const handler = async (event: any) => {
           },
           Limit: limit,
           ExclusiveStartKey: cursor,
-        })
+          ScanIndexForward: false,
+        }),
       );
 
-      return response(200, {
-        items: (res.Items || []).map((i: any) => ({
-          id: i.id,
-          name: i.name,
-          content: i.content,
-          createdAt: i.createdAt,
-          reply: i.replyContent
-            ? {
-                content: i.replyContent,
-                createdAt: i.replyCreatedAt,
-              }
-            : undefined,
-        })),
+      return ok(200, {
+        items: (res.Items || []).map(publicComment),
         nextCursor: encodeCursor(res.LastEvaluatedKey),
       });
     }
 
-    // ======================================================
-    // PUBLIC: POST COMMENT
-    // ======================================================
     if (method === "POST" && path === "/comments") {
-      const { name, email, content, captchaToken } = body;
+      const name = bodyString(body, "name");
+      const email = bodyString(body, "email");
+      const content = bodyString(body, "content");
+      const captchaToken = bodyString(body, "captchaToken");
 
       if (!name || !email || !content) {
-        return response(400, { error: "Missing fields" });
+        return error(400, "missing_fields", "Missing required fields");
       }
 
       const captchaOk = await verifyCaptcha(captchaToken);
       if (!captchaOk) {
-        return response(400, { error: "Captcha failed" });
+        return error(400, "captcha_failed", "Captcha verification failed");
       }
 
       const id = randomUUID();
-
+      const createdAt = new Date().toISOString();
       const item = {
         PK: "COMMENT",
-        SK: `COMMENT#${id}`,
+        SK: `${createdAt}#${id}`,
         id,
         name,
         email,
         content,
         status: "visible",
-        createdAt: new Date().toISOString(),
+        createdAt,
         GSI1PK: "CMT#visible",
-        GSI1SK: new Date().toISOString(),
+        GSI1SK: createdAt,
       };
 
       await ddb.send(new PutCommand({ TableName: TABLE_NAME, Item: item }));
-
-      return response(201, {
-        comment: {
-          id,
-          name,
-          content,
-          createdAt: item.createdAt,
-        },
-      });
+      return ok(201, { comment: publicComment(item) });
     }
 
-    // ======================================================
-    // PUBLIC: GET IMAGES (FIXED - GSI byCategory)
-    // ======================================================
     if (method === "GET" && path === "/images") {
       const limit = Number(query.limit || 12);
       const cursor = parseCursor(query.cursor);
       const category = query.category;
 
-      let res;
-
-      if (category) {
-        res = await ddb.send(
-          new QueryCommand({
-            TableName: TABLE_NAME,
-            IndexName: "byCategory",
-            KeyConditionExpression: "category = :c",
-            ExpressionAttributeValues: {
-              ":c": category,
-            },
-            Limit: limit,
-            ExclusiveStartKey: cursor,
-          })
-        );
-      } else {
-        res = await ddb.send(
-          new QueryCommand({
-            TableName: TABLE_NAME,
-            KeyConditionExpression: "PK = :pk",
-            ExpressionAttributeValues: {
-              ":pk": "IMAGE",
-            },
-            Limit: limit,
-            ExclusiveStartKey: cursor,
-          })
-        );
+      if (category && !validImageCategories.has(category)) {
+        return error(400, "invalid_category", "Invalid image category");
       }
 
-      return response(200, {
-        items: (res.Items || []).map((i: any) => ({
-          id: i.id,
-          url: i.url,
-          thumbUrl: i.thumbUrl,
-          category: i.category,
-          width: i.width,
-          height: i.height,
-        })),
-        nextCursor: encodeCursor(res.LastEvaluatedKey),
-      });
-    }
-
-    // ======================================================
-    // ADMIN: REPLY COMMENT (FIXED KEY)
-    // ======================================================
-    if (method === "POST" && path.match(/^\/admin\/comments\/[^/]+\/reply$/)) {
-      const id = path.split("/")[3];
-
-      await ddb.send(
-        new UpdateCommand({
+      const res = await ddb.send(
+        new QueryCommand({
           TableName: TABLE_NAME,
-          Key: {
-            PK: "COMMENT",
-            SK: `COMMENT#${id}`,
-          },
-          UpdateExpression:
-            "set replyContent = :r, replyCreatedAt = :t",
-          ExpressionAttributeValues: {
-            ":r": body.content,
-            ":t": new Date().toISOString(),
-          },
-        })
-      );
-
-      return response(200, { ok: true });
-    }
-
-    // ======================================================
-    // ADMIN: UPDATE STATUS
-    // ======================================================
-    if (method === "PATCH" && path.startsWith("/admin/comments/")) {
-      const id = path.split("/")[3];
-
-      await ddb.send(
-        new UpdateCommand({
-          TableName: TABLE_NAME,
-          Key: {
-            PK: "COMMENT",
-            SK: `COMMENT#${id}`,
-          },
-          UpdateExpression: "set #s = :s, GSI1PK = :g",
+          IndexName: category ? "byCategory" : undefined,
+          KeyConditionExpression: category
+            ? "GSI2PK = :pk"
+            : "PK = :pk",
+          FilterExpression: "#s = :active",
           ExpressionAttributeNames: {
             "#s": "status",
           },
           ExpressionAttributeValues: {
-            ":s": body.status,
-            ":g": `CMT#${body.status}`,
+            ":pk": category ? `IMG#${category}` : "IMAGE",
+            ":active": "active",
           },
-        })
+          Limit: limit,
+          ExclusiveStartKey: cursor,
+          ScanIndexForward: false,
+        }),
       );
 
-      return response(200, { ok: true });
+      return ok(200, {
+        items: (res.Items || []).map(galleryImage),
+        nextCursor: encodeCursor(res.LastEvaluatedKey),
+      });
     }
 
-    // ======================================================
-    // ADMIN: DELETE COMMENT (FIXED KEY)
-    // ======================================================
-    if (method === "DELETE" && path.startsWith("/admin/comments/")) {
+    if (method === "GET" && path === "/admin/comments") {
+      const limit = Number(query.limit || 20);
+      const cursor = parseCursor(query.cursor);
+      const status = query.status;
+
+      if (status && !validCommentStatuses.has(status)) {
+        return error(400, "invalid_status", "Invalid comment status");
+      }
+
+      const res = await ddb.send(
+        new QueryCommand({
+          TableName: TABLE_NAME,
+          IndexName: status ? "byStatus" : undefined,
+          KeyConditionExpression: status ? "GSI1PK = :pk" : "PK = :pk",
+          ExpressionAttributeValues: {
+            ":pk": status ? `CMT#${status}` : "COMMENT",
+          },
+          Limit: limit,
+          ExclusiveStartKey: cursor,
+          ScanIndexForward: false,
+        }),
+      );
+
+      return ok(200, {
+        items: (res.Items || []).map(adminComment),
+        nextCursor: encodeCursor(res.LastEvaluatedKey),
+      });
+    }
+
+    if (method === "POST" && /^\/admin\/comments\/[^/]+\/reply$/.test(path)) {
       const id = path.split("/")[3];
+      const content = bodyString(body, "content");
+      if (!content) return error(400, "missing_content", "Missing reply content");
+
+      const item = await findItemById("COMMENT", id);
+      if (!item) return error(404, "not_found", "Comment not found");
+
+      const res = await ddb.send(
+        new UpdateCommand({
+          TableName: TABLE_NAME,
+          Key: { PK: item.PK, SK: item.SK },
+          UpdateExpression: "SET replyContent = :r, replyCreatedAt = :t",
+          ExpressionAttributeValues: {
+            ":r": content,
+            ":t": new Date().toISOString(),
+          },
+          ReturnValues: "ALL_NEW",
+        }),
+      );
+
+      return ok(200, adminComment(res.Attributes || {}));
+    }
+
+    if (method === "PATCH" && /^\/admin\/comments\/[^/]+$/.test(path)) {
+      const id = path.split("/")[3];
+      const status = bodyString(body, "status") as CommentStatus;
+      if (!validCommentStatuses.has(status)) {
+        return error(400, "invalid_status", "Invalid comment status");
+      }
+
+      const item = await findItemById("COMMENT", id);
+      if (!item) return error(404, "not_found", "Comment not found");
+
+      const res = await ddb.send(
+        new UpdateCommand({
+          TableName: TABLE_NAME,
+          Key: { PK: item.PK, SK: item.SK },
+          UpdateExpression: "SET #s = :s, GSI1PK = :g, GSI1SK = :t",
+          ExpressionAttributeNames: {
+            "#s": "status",
+          },
+          ExpressionAttributeValues: {
+            ":s": status,
+            ":g": `CMT#${status}`,
+            ":t": item.createdAt,
+          },
+          ReturnValues: "ALL_NEW",
+        }),
+      );
+
+      return ok(200, adminComment(res.Attributes || {}));
+    }
+
+    if (method === "DELETE" && /^\/admin\/comments\/[^/]+$/.test(path)) {
+      const id = path.split("/")[3];
+      const item = await findItemById("COMMENT", id);
+      if (!item) return error(404, "not_found", "Comment not found");
 
       await ddb.send(
         new DeleteCommand({
           TableName: TABLE_NAME,
-          Key: {
-            PK: "COMMENT",
-            SK: `COMMENT#${id}`,
-          },
-        })
+          Key: { PK: item.PK, SK: item.SK },
+        }),
       );
 
-      return response(204, {});
+      return ok(204);
     }
 
-    // ======================================================
-    // NOT FOUND
-    // ======================================================
-    return response(404, {
-      error: "Route not found",
-    });
+    if (method === "GET" && path === "/admin/images") {
+      const limit = Number(query.limit || 20);
+      const cursor = parseCursor(query.cursor);
+
+      const res = await ddb.send(
+        new QueryCommand({
+          TableName: TABLE_NAME,
+          KeyConditionExpression: "PK = :pk",
+          ExpressionAttributeValues: {
+            ":pk": "IMAGE",
+          },
+          Limit: limit,
+          ExclusiveStartKey: cursor,
+          ScanIndexForward: false,
+        }),
+      );
+
+      return ok(200, {
+        items: (res.Items || []).map(adminImage),
+        nextCursor: encodeCursor(res.LastEvaluatedKey),
+      });
+    }
+
+    if (method === "POST" && path === "/admin/images/upload-url") {
+      const fileName = bodyString(body, "fileName");
+      const contentType = bodyString(body, "contentType");
+      const size = Number(body.size);
+
+      if (!fileName || !allowedImageTypes.has(contentType) || !size) {
+        return error(400, "invalid_upload", "Invalid upload request");
+      }
+      if (size > MAX_UPLOAD_BYTES) {
+        return error(400, "file_too_large", "Image exceeds the upload limit");
+      }
+
+      const imageId = randomUUID();
+      const createdAt = new Date().toISOString();
+      const objectKey = `${UPLOADS_PREFIX}${createdAt}#${imageId}`;
+
+      await ddb.send(
+        new PutCommand({
+          TableName: TABLE_NAME,
+          Item: {
+            PK: "IMAGE",
+            SK: `${createdAt}#${imageId}`,
+            id: imageId,
+            objectKey,
+            sourceFileName: fileName,
+            contentType,
+            createdAt,
+            status: "processing",
+            width: 0,
+            height: 0,
+            sizeBytes: size,
+          },
+          ConditionExpression: "attribute_not_exists(PK)",
+        }),
+      );
+
+      const command = new PutObjectCommand({
+        Bucket: BUCKET,
+        Key: objectKey,
+        ContentType: contentType,
+        Metadata: {
+          "image-id": imageId,
+          "created-at": createdAt,
+        },
+      });
+      const uploadUrl = await getSignedUrl(s3, command, { expiresIn: 900 });
+
+      return ok(200, { uploadUrl, imageId, objectKey });
+    }
+
+    if (method === "POST" && path === "/admin/images") {
+      const imageId = bodyString(body, "imageId");
+      const objectKey = bodyString(body, "objectKey");
+      const category = bodyString(body, "category") as ImageCategory;
+      const alt = bodyString(body, "alt");
+
+      if (!imageId || !objectKey || !validImageCategories.has(category)) {
+        return error(400, "invalid_image", "Invalid image registration");
+      }
+
+      const key = imageKeyFromObjectKey(objectKey, imageId);
+      if (!key) return error(400, "invalid_object_key", "Invalid object key");
+
+      const current = await ddb.send(
+        new GetCommand({
+          TableName: TABLE_NAME,
+          Key: { PK: key.PK, SK: key.SK },
+        }),
+      );
+      if (!current.Item) return error(404, "not_found", "Image not found");
+
+      const values: Record<string, unknown> = {
+        ":c": category,
+        ":g": `IMG#${category}`,
+        ":t": key.createdAt,
+      };
+      if (alt) values[":a"] = alt;
+
+      const res = await ddb.send(
+        new UpdateCommand({
+          TableName: TABLE_NAME,
+          Key: { PK: key.PK, SK: key.SK },
+          UpdateExpression: alt
+            ? "SET category = :c, alt = :a, GSI2PK = :g, GSI2SK = :t"
+            : "SET category = :c, GSI2PK = :g, GSI2SK = :t REMOVE alt",
+          ExpressionAttributeValues: values,
+          ReturnValues: "ALL_NEW",
+        }),
+      );
+
+      return ok(200, adminImage(res.Attributes || {}));
+    }
+
+    if (method === "DELETE" && /^\/admin\/images\/[^/]+$/.test(path)) {
+      const id = path.split("/")[3];
+      const item = await findItemById("IMAGE", id);
+      if (!item) return error(404, "not_found", "Image not found");
+
+      const keysToDelete = [
+        item.objectKey,
+        `${PUBLIC_PREFIX}${id}.webp`,
+        `${PUBLIC_PREFIX}${id}_thumb.webp`,
+      ].filter((value): value is string => typeof value === "string" && value.length > 0);
+
+      await Promise.all(
+        keysToDelete.map((Key) =>
+          s3.send(new DeleteObjectCommand({ Bucket: BUCKET, Key })),
+        ),
+      );
+      await ddb.send(
+        new DeleteCommand({
+          TableName: TABLE_NAME,
+          Key: { PK: item.PK, SK: item.SK },
+        }),
+      );
+
+      return ok(204);
+    }
+
+    return error(404, "not_found", "Route not found");
   } catch (err: any) {
     console.error(err);
-    return response(500, {
-      error: err.message,
-    });
+    return error(500, "internal_error", err.message || "Internal error");
   }
 };
+
+function requireEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) throw new Error(`Missing required env var: ${name}`);
+  return value;
+}
