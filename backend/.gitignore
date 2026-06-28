@@ -1,0 +1,5 @@
+node_modules/
+dist/
+*.zip
+.aws-sam/
+cdk.out/
