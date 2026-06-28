@@ -6,6 +6,7 @@ import {
   UpdateCommand,
   DeleteCommand,
 } from "@aws-sdk/lib-dynamodb";
+
 import { randomUUID } from "crypto";
 import jwt from "jsonwebtoken";
 import jwksClient from "jwks-rsa";
@@ -16,15 +17,17 @@ const USER_POOL_ID = process.env.USER_POOL_ID!;
 const REGION = process.env.AWS_REGION || "eu-central-1";
 const TURNSTILE_SECRET = process.env.TURNSTILE_SECRET!;
 
-const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({ region: REGION }));
+const ddb = DynamoDBDocumentClient.from(
+  new DynamoDBClient({ region: REGION })
+);
 
-// ===================== JWKS (Cognito verify) =====================
+// ===================== JWKS =====================
 const client = jwksClient({
   jwksUri: `https://cognito-idp.${REGION}.amazonaws.com/${USER_POOL_ID}/.well-known/jwks.json`,
 });
 
 function getKey(header: any, callback: any) {
-  client.getSigningKey(header.kid, function (err, key: any) {
+  client.getSigningKey(header.kid, (err, key: any) => {
     const signingKey = key.getPublicKey();
     callback(null, signingKey);
   });
@@ -46,8 +49,8 @@ function verifyToken(token: string): Promise<any> {
   });
 }
 
-// ===================== CAPTCHA VERIFY =====================
-async function verifyCaptcha(token: string) {
+// ===================== CAPTCHA =====================
+async function verifyCaptcha(token: string): Promise<boolean> {
   const res = await fetch(
     "https://challenges.cloudflare.com/turnstile/v0/siteverify",
     {
@@ -60,11 +63,11 @@ async function verifyCaptcha(token: string) {
     }
   );
 
-  const data = await res.json();
+  const data = (await res.json()) as { success: boolean };
   return data.success === true;
 }
 
-// ===================== HELPERS =====================
+// ===================== RESPONSE =====================
 function response(statusCode: number, body: any) {
   return {
     statusCode,
@@ -76,17 +79,18 @@ function response(statusCode: number, body: any) {
   };
 }
 
-function parseCursor(cursor?: string) {
-  if (!cursor) return undefined;
-  return JSON.parse(Buffer.from(cursor, "base64").toString("utf-8"));
-}
-
+// ===================== CURSOR =====================
 function encodeCursor(lastKey?: any) {
   if (!lastKey) return null;
   return Buffer.from(JSON.stringify(lastKey)).toString("base64");
 }
 
-// ===================== ROUTER =====================
+function parseCursor(cursor?: string) {
+  if (!cursor) return undefined;
+  return JSON.parse(Buffer.from(cursor, "base64").toString("utf-8"));
+}
+
+// ===================== HANDLER =====================
 export const handler = async (event: any) => {
   try {
     const method = event.requestContext.http.method;
@@ -98,18 +102,20 @@ export const handler = async (event: any) => {
     const authHeader = event.headers?.authorization || "";
     const token = authHeader.replace("Bearer ", "");
 
-    const isAdminRoute = path.startsWith("/admin");
+    const isAdmin = path.startsWith("/admin");
 
     let user: any = null;
 
-    if (isAdminRoute) {
+    if (isAdmin) {
       if (!token) {
-        return response(401, { error: { code: "unauthorized", message: "Missing token" } });
+        return response(401, { error: "Missing token" });
       }
       user = await verifyToken(token);
     }
 
-    // ===================== PUBLIC: GET COMMENTS =====================
+    // ======================================================
+    // PUBLIC: GET COMMENTS (FIXED GSI byStatus)
+    // ======================================================
     if (method === "GET" && path === "/comments") {
       const limit = Number(query.limit || 10);
       const cursor = parseCursor(query.cursor);
@@ -117,19 +123,18 @@ export const handler = async (event: any) => {
       const res = await ddb.send(
         new QueryCommand({
           TableName: TABLE_NAME,
-          KeyConditionExpression: "PK = :pk",
+          IndexName: "byStatus",
+          KeyConditionExpression: "GSI1PK = :pk",
           ExpressionAttributeValues: {
-            ":pk": "COMMENT",
+            ":pk": "CMT#visible",
           },
-          ScanIndexForward: false,
           Limit: limit,
           ExclusiveStartKey: cursor,
         })
       );
 
-      const items = (res.Items || [])
-        .filter((i: any) => i.status === "visible")
-        .map((i: any) => ({
+      return response(200, {
+        items: (res.Items || []).map((i: any) => ({
           id: i.id,
           name: i.name,
           content: i.content,
@@ -140,35 +145,32 @@ export const handler = async (event: any) => {
                 createdAt: i.replyCreatedAt,
               }
             : undefined,
-        }));
-
-      return response(200, {
-        items,
+        })),
         nextCursor: encodeCursor(res.LastEvaluatedKey),
       });
     }
 
-    // ===================== PUBLIC: POST COMMENT =====================
+    // ======================================================
+    // PUBLIC: POST COMMENT
+    // ======================================================
     if (method === "POST" && path === "/comments") {
       const { name, email, content, captchaToken } = body;
 
       if (!name || !email || !content) {
-        return response(400, {
-          error: { code: "invalid_body", message: "Missing fields" },
-        });
+        return response(400, { error: "Missing fields" });
       }
 
       const captchaOk = await verifyCaptcha(captchaToken);
       if (!captchaOk) {
-        return response(400, {
-          error: { code: "captcha_failed", message: "Invalid captcha" },
-        });
+        return response(400, { error: "Captcha failed" });
       }
+
+      const id = randomUUID();
 
       const item = {
         PK: "COMMENT",
-        SK: `${new Date().toISOString()}#${randomUUID()}`,
-        id: randomUUID(),
+        SK: `COMMENT#${id}`,
+        id,
         name,
         email,
         content,
@@ -182,7 +184,7 @@ export const handler = async (event: any) => {
 
       return response(201, {
         comment: {
-          id: item.id,
+          id,
           name,
           content,
           createdAt: item.createdAt,
@@ -190,53 +192,71 @@ export const handler = async (event: any) => {
       });
     }
 
-    // ===================== PUBLIC: GET IMAGES =====================
+    // ======================================================
+    // PUBLIC: GET IMAGES (FIXED - GSI byCategory)
+    // ======================================================
     if (method === "GET" && path === "/images") {
       const limit = Number(query.limit || 12);
       const cursor = parseCursor(query.cursor);
       const category = query.category;
 
-      const res = await ddb.send(
-        new QueryCommand({
-          TableName: TABLE_NAME,
-          KeyConditionExpression: "PK = :pk",
-          ExpressionAttributeValues: {
-            ":pk": "IMAGE",
-          },
-          Limit: limit,
-          ExclusiveStartKey: cursor,
-        })
-      );
-
-      let items = res.Items || [];
+      let res;
 
       if (category) {
-        items = items.filter((i: any) => i.category === category);
+        res = await ddb.send(
+          new QueryCommand({
+            TableName: TABLE_NAME,
+            IndexName: "byCategory",
+            KeyConditionExpression: "category = :c",
+            ExpressionAttributeValues: {
+              ":c": category,
+            },
+            Limit: limit,
+            ExclusiveStartKey: cursor,
+          })
+        );
+      } else {
+        res = await ddb.send(
+          new QueryCommand({
+            TableName: TABLE_NAME,
+            KeyConditionExpression: "PK = :pk",
+            ExpressionAttributeValues: {
+              ":pk": "IMAGE",
+            },
+            Limit: limit,
+            ExclusiveStartKey: cursor,
+          })
+        );
       }
 
       return response(200, {
-        items: items.map((i: any) => ({
+        items: (res.Items || []).map((i: any) => ({
           id: i.id,
           url: i.url,
           thumbUrl: i.thumbUrl,
+          category: i.category,
           width: i.width,
           height: i.height,
-          category: i.category,
-          alt: i.alt,
         })),
         nextCursor: encodeCursor(res.LastEvaluatedKey),
       });
     }
 
-    // ===================== ADMIN: REPLY COMMENT =====================
+    // ======================================================
+    // ADMIN: REPLY COMMENT (FIXED KEY)
+    // ======================================================
     if (method === "POST" && path.match(/^\/admin\/comments\/[^/]+\/reply$/)) {
       const id = path.split("/")[3];
 
       await ddb.send(
         new UpdateCommand({
           TableName: TABLE_NAME,
-          Key: { PK: "COMMENT", SK: id },
-          UpdateExpression: "set replyContent = :r, replyCreatedAt = :t",
+          Key: {
+            PK: "COMMENT",
+            SK: `COMMENT#${id}`,
+          },
+          UpdateExpression:
+            "set replyContent = :r, replyCreatedAt = :t",
           ExpressionAttributeValues: {
             ":r": body.content,
             ":t": new Date().toISOString(),
@@ -247,24 +267,26 @@ export const handler = async (event: any) => {
       return response(200, { ok: true });
     }
 
-    // ===================== ADMIN: UPDATE STATUS =====================
+    // ======================================================
+    // ADMIN: UPDATE STATUS
+    // ======================================================
     if (method === "PATCH" && path.startsWith("/admin/comments/")) {
       const id = path.split("/")[3];
-
-      const status = body.status;
 
       await ddb.send(
         new UpdateCommand({
           TableName: TABLE_NAME,
-          Key: { PK: "COMMENT", SK: id },
-          UpdateExpression:
-            "set #s = :s, GSI1PK = :gpk",
+          Key: {
+            PK: "COMMENT",
+            SK: `COMMENT#${id}`,
+          },
+          UpdateExpression: "set #s = :s, GSI1PK = :g",
           ExpressionAttributeNames: {
             "#s": "status",
           },
           ExpressionAttributeValues: {
-            ":s": status,
-            ":gpk": `CMT#${status}`,
+            ":s": body.status,
+            ":g": `CMT#${body.status}`,
           },
         })
       );
@@ -272,28 +294,35 @@ export const handler = async (event: any) => {
       return response(200, { ok: true });
     }
 
-    // ===================== ADMIN: DELETE COMMENT =====================
+    // ======================================================
+    // ADMIN: DELETE COMMENT (FIXED KEY)
+    // ======================================================
     if (method === "DELETE" && path.startsWith("/admin/comments/")) {
       const id = path.split("/")[3];
 
       await ddb.send(
         new DeleteCommand({
           TableName: TABLE_NAME,
-          Key: { PK: "COMMENT", SK: id },
+          Key: {
+            PK: "COMMENT",
+            SK: `COMMENT#${id}`,
+          },
         })
       );
 
       return response(204, {});
     }
 
-    // ===================== DEFAULT =====================
+    // ======================================================
+    // NOT FOUND
+    // ======================================================
     return response(404, {
-      error: { code: "not_found", message: "Route not found" },
+      error: "Route not found",
     });
   } catch (err: any) {
     console.error(err);
     return response(500, {
-      error: { code: "internal_error", message: err.message },
+      error: err.message,
     });
   }
 };
