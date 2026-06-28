@@ -26,7 +26,8 @@ import type { S3Event, S3EventRecord } from "aws-lambda";
  *                      https://dxxxx.cloudfront.net (required)
  *      UPLOADS_PREFIX  default "uploads/"
  *      PUBLIC_PREFIX   default "public/"
- *      MAX_EDGE        longest side in px, default "2000"
+ *      MAX_EDGE        full image longest side in px, default "2000"
+ *      THUMB_EDGE      thumbnail longest side in px, default "600"
  *      WEBP_QUALITY    1-100, default "82"
  *
  * 2. S3 OBJECT METADATA on the uploaded original (set when the presigned PUT is
@@ -38,7 +39,7 @@ import type { S3Event, S3EventRecord } from "aws-lambda";
  *
  * 3. DYNAMODB ROW (created earlier by the API Lambda with status "processing";
  *    this function only UPDATES it). Matches AdminImage in
- *    web/src/lib/api/types.ts: { url, width, height, sizeBytes, status }.
+ *    web/src/lib/api/types.ts: { url, thumbUrl, width, height, sizeBytes, status }.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
@@ -48,6 +49,7 @@ const CDN_BASE_URL = requireEnv("CDN_BASE_URL").replace(/\/$/, "");
 const UPLOADS_PREFIX = process.env.UPLOADS_PREFIX ?? "uploads/";
 const PUBLIC_PREFIX = process.env.PUBLIC_PREFIX ?? "public/";
 const MAX_EDGE = Number(process.env.MAX_EDGE ?? "2000");
+const THUMB_EDGE = Number(process.env.THUMB_EDGE ?? "600");
 const WEBP_QUALITY = Number(process.env.WEBP_QUALITY ?? "82");
 
 const s3 = new S3Client({});
@@ -92,9 +94,13 @@ async function processRecord(record: S3EventRecord): Promise<void> {
   );
   const input = Buffer.from(await obj.Body!.transformToByteArray());
 
-  // 2. Convert → WebP (auto-rotate via EXIF, downscale only).
-  const { data, info } = await sharp(input)
-    .rotate()
+  // 2. Two WebP renditions from one decoded source: a full image for the
+  //    lightbox and a thumbnail for the gallery grid. `.rotate()` applies EXIF
+  //    orientation; sharp drops all other metadata by default (we intentionally
+  //    do NOT call .withMetadata()), so EXIF/GPS is stripped for privacy.
+  const base = sharp(input).rotate();
+  const full = await base
+    .clone()
     .resize({
       width: MAX_EDGE,
       height: MAX_EDGE,
@@ -103,27 +109,41 @@ async function processRecord(record: S3EventRecord): Promise<void> {
     })
     .webp({ quality: WEBP_QUALITY })
     .toBuffer({ resolveWithObject: true });
+  const thumb = await base
+    .clone()
+    .resize({
+      width: THUMB_EDGE,
+      height: THUMB_EDGE,
+      fit: "inside",
+      withoutEnlargement: true,
+    })
+    .webp({ quality: WEBP_QUALITY })
+    .toBuffer();
 
-  // 3. Upload WebP to the public prefix (immutable → long cache).
-  const publicKey = `${PUBLIC_PREFIX}${imageId}.webp`;
-  await s3.send(
-    new PutObjectCommand({
-      Bucket: BUCKET,
-      Key: publicKey,
-      Body: data,
-      ContentType: "image/webp",
-      CacheControl: "public, max-age=31536000, immutable",
-    }),
-  );
+  // 3. Upload both to the public prefix (immutable → long cache).
+  const fullKey = `${PUBLIC_PREFIX}${imageId}.webp`;
+  const thumbKey = `${PUBLIC_PREFIX}${imageId}_thumb.webp`;
+  const put = (Key: string, Body: Buffer) =>
+    s3.send(
+      new PutObjectCommand({
+        Bucket: BUCKET,
+        Key,
+        Body,
+        ContentType: "image/webp",
+        CacheControl: "public, max-age=31536000, immutable",
+      }),
+    );
+  await Promise.all([put(fullKey, full.data), put(thumbKey, thumb)]);
 
-  // 4. Activate the DynamoDB row.
-  const url = `${CDN_BASE_URL}/${publicKey}`;
+  // 4. Activate the DynamoDB row with both URLs (dimensions = full image).
+  const url = `${CDN_BASE_URL}/${fullKey}`;
+  const thumbUrl = `${CDN_BASE_URL}/${thumbKey}`;
   await ddb.send(
     new UpdateCommand({
       TableName: TABLE_NAME,
       Key: buildItemKey(imageId, createdAt),
       UpdateExpression:
-        "SET #s = :active, #u = :url, #w = :w, #h = :h, sizeBytes = :sz",
+        "SET #s = :active, #u = :url, thumbUrl = :turl, #w = :w, #h = :h, sizeBytes = :sz",
       ExpressionAttributeNames: {
         "#s": "status",
         "#u": "url",
@@ -133,16 +153,18 @@ async function processRecord(record: S3EventRecord): Promise<void> {
       ExpressionAttributeValues: {
         ":active": "active",
         ":url": url,
-        ":w": info.width,
-        ":h": info.height,
+        ":turl": thumbUrl,
+        ":w": full.info.width,
+        ":h": full.info.height,
         // Store the ORIGINAL upload size (what the shop owner recognizes).
-        // Change to `data.length` if you'd rather track the served WebP size.
         ":sz": originalSize,
       },
     }),
   );
 
-  console.log(`Processed ${key} → ${publicKey} (${info.width}x${info.height})`);
+  console.log(
+    `Processed ${key} → ${fullKey} + ${thumbKey} (${full.info.width}x${full.info.height})`,
+  );
 }
 
 /**

@@ -48,7 +48,11 @@ export interface NewComment {
 /** Image as shown in the public gallery (CloudFront-served WebP). */
 export interface GalleryImage {
   id: string;
+  /** Full-size WebP — used in the lightbox. */
   url: string;
+  /** Thumbnail WebP — used in the masonry grid. */
+  thumbUrl: string;
+  /** Dimensions of the full image. */
   width: number;
   height: number;
   alt?: string;

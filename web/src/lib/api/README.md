@@ -33,9 +33,9 @@ Lambda: **verify CAPTCHA** (hCaptcha/Turnstile) → validate định dạng emai
 
 ### `GET /images?cursor&limit`
 ```jsonc
-{ "items": [ { "id", "url", "width", "height", "alt"? } ], "nextCursor": ... }
+{ "items": [ { "id", "url", "thumbUrl", "width", "height", "alt"? } ], "nextCursor": ... }
 ```
-`url` là link CloudFront tới bản **WebP** đã tối ưu.
+`url` = WebP full (lightbox), `thumbUrl` = WebP thumbnail (grid) — đều là link CloudFront.
 
 ## Admin endpoints (Cognito)
 

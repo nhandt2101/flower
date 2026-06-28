@@ -91,9 +91,10 @@ Một handler route nội bộ theo method + path (khớp [API contract](../web/
 - Bộ nhớ 256 MB, timeout 10s là đủ. **Kiến trúc arm64 (Graviton)** — rẻ hơn ~20% GB-s, Node chạy tốt.
 
 ### 3.3 Lambda `image-processor` (S3 ObjectCreated trên `uploads/`)
-- Dùng `sharp` (qua Lambda Layer hoặc container image) chuyển sang **WebP**,
-  resize giới hạn cạnh (vd ≤ 2000px), đọc `width/height`.
-- Ghi WebP vào `public/`, cập nhật DynamoDB `status → active` + kích thước.
+- Dùng `sharp` (qua Lambda Layer hoặc container image) tạo **2 bản WebP**: full
+  (≤ 2000px, cho lightbox) + thumbnail (≤ 600px, cho grid); **strip EXIF** (privacy).
+- Ghi cả 2 vào `public/`, cập nhật DynamoDB `status → active` + `url/thumbUrl/width/height`.
+- Đã code sẵn: [`functions/image-processor/`](functions/image-processor/).
 - Bộ nhớ 1024 MB, **arm64** (sharp hỗ trợ arm64), timeout 30s. Chỉ chạy khi upload → vài trăm lần tổng cộng, nằm gọn trong 400k GB-s free.
 
 ### 3.4 S3 (1 bucket, private)

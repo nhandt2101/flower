@@ -1,8 +1,9 @@
 # Lambda: image-processor
 
-Chuyển ảnh gốc khách upload thành **WebP** (resize + xoay theo EXIF), lưu vào
-prefix `public/`, rồi cập nhật bản ghi DynamoDB sang `status: "active"` kèm
-`url / width / height / sizeBytes`.
+Chuyển ảnh gốc khách upload thành **2 bản WebP** — **full** (lightbox) + **thumb**
+(grid) — xoay theo EXIF, **strip toàn bộ metadata EXIF (GPS…)**, lưu vào prefix
+`public/`, rồi cập nhật bản ghi DynamoDB sang `status: "active"` kèm
+`url / thumbUrl / width / height / sizeBytes`. Ảnh gốc **giữ lại** (S3 lifecycle xóa sau).
 
 > **Ai làm gì:** Code handler + deps ở đây do FE viết. **Teammate backend** lo
 > trigger, IAM, đóng gói `sharp`, env vars và deploy (các mục ⬇️ đánh dấu **[BE]**).
@@ -15,9 +16,9 @@ admin upload ─presigned PUT─▶ S3  uploads/{imageId}        (metadata: imag
                                    │ ObjectCreated event
                                    ▼
                           Lambda image-processor
-                            ├─ sharp → WebP (≤2000px)
-                            ├─ PUT  → S3 public/{imageId}.webp
-                            └─ UpdateItem DynamoDB: status=active, url, w, h, sizeBytes
+                            ├─ sharp → WebP full (≤2000px) + thumb (≤600px), strip EXIF
+                            ├─ PUT  → S3 public/{imageId}.webp  +  public/{imageId}_thumb.webp
+                            └─ UpdateItem DynamoDB: status=active, url, thumbUrl, w, h, sizeBytes
 ```
 Bản ghi DynamoDB được **API Lambda tạo trước** (lúc `POST /admin/images`) với
 `status: "processing"`. Function này chỉ **update**, không tạo mới.
@@ -37,7 +38,8 @@ Bản ghi DynamoDB được **API Lambda tạo trước** (lúc `POST /admin/ima
 | `CDN_BASE_URL` | ✅ | — | Base CloudFront, không slash cuối, vd `https://dxxxx.cloudfront.net` |
 | `UPLOADS_PREFIX` | | `uploads/` | |
 | `PUBLIC_PREFIX` | | `public/` | |
-| `MAX_EDGE` | | `2000` | Cạnh dài nhất (px) |
+| `MAX_EDGE` | | `2000` | Cạnh dài nhất ảnh full (px) |
+| `THUMB_EDGE` | | `600` | Cạnh dài nhất thumbnail (px) |
 | `WEBP_QUALITY` | | `82` | Chất lượng WebP 1–100 |
 
 Thiếu env bắt buộc → function throw ngay khi khởi tạo (thấy rõ trong CloudWatch).
@@ -71,9 +73,10 @@ metadata, xem cách khác ở mục 7.
 single-table của [ARCHITECTURE.md](../../ARCHITECTURE.md) §3.1:
 `PK="IMAGE"`, `SK="<createdAt>#<id>"`. **Nếu bảng dùng khóa khác → sửa đúng 1 hàm này.**
 
-**c) Shape item**: function set `status, url, width, height, sizeBytes` — khớp
-`AdminImage` trong [`web/src/lib/api/types.ts`](../../../web/src/lib/api/types.ts).
-`sizeBytes` đang lưu **kích thước ảnh gốc** (đổi sang `data.length` nếu muốn lưu cỡ WebP).
+**c) Shape item**: function set `status, url, thumbUrl, width, height, sizeBytes` —
+khớp `AdminImage`/`GalleryImage` trong [`web/src/lib/api/types.ts`](../../../web/src/lib/api/types.ts).
+`url` = bản full (lightbox), `thumbUrl` = bản thumb (grid). `width/height` là của
+bản full. `sizeBytes` lưu **kích thước ảnh gốc**.
 
 ## 6. ⚠️ Đóng gói `sharp` (native binary) — gotcha quan trọng **[BE]**
 
