@@ -52,16 +52,30 @@ export function GalleryGrid() {
   const to = useTranslations("occasions");
   const [filter, setFilter] = useState<Filter>("all");
   const [open, setOpen] = useState<number | null>(null);
+  const [visible, setVisible] = useState(false); // drives enter/exit fade+scale
+  const [dir, setDir] = useState<1 | -1>(1); // slide direction on switch
 
   const items = useMemo(
     () => (filter === "all" ? TILES : TILES.filter((tile) => tile.category === filter)),
     [filter],
   );
 
-  const close = useCallback(() => setOpen(null), []);
+  const openAt = useCallback((i: number) => {
+    setDir(1);
+    setOpen(i);
+    requestAnimationFrame(() => setVisible(true));
+  }, []);
+
+  const close = useCallback(() => {
+    setVisible(false);
+    window.setTimeout(() => setOpen(null), 220); // matches CSS .lb-overlay
+  }, []);
+
   const show = useCallback(
-    (next: number) =>
-      setOpen((i) => ((i ?? 0) + next + items.length) % items.length),
+    (next: 1 | -1) => {
+      setDir(next);
+      setOpen((i) => ((i ?? 0) + next + items.length) % items.length);
+    },
     [items.length],
   );
 
@@ -82,6 +96,7 @@ export function GalleryGrid() {
 
   const selectFilter = (f: Filter) => {
     setOpen(null); // indexes change with the filter
+    setVisible(false);
     setFilter(f);
   };
 
@@ -121,7 +136,7 @@ export function GalleryGrid() {
           <button
             key={`${filter}-${i}`}
             type="button"
-            onClick={() => setOpen(i)}
+            onClick={() => openAt(i)}
             aria-label={`${t("imageLabel")} ${i + 1}`}
             className="block w-full break-inside-avoid rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
@@ -136,7 +151,9 @@ export function GalleryGrid() {
           aria-modal="true"
           aria-label={t("imageLabel")}
           onClick={close}
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-foreground/90 p-4 backdrop-blur-sm sm:p-8"
+          className={`lb-overlay fixed inset-0 z-[60] flex items-center justify-center bg-foreground/90 p-4 backdrop-blur-sm sm:p-8 ${
+            visible ? "is-open" : ""
+          }`}
         >
           <div className="absolute inset-x-0 top-0 flex items-center justify-between px-5 py-4">
             <span className="text-sm tabular-nums tracking-wide text-background/70">
@@ -183,9 +200,14 @@ export function GalleryGrid() {
 
           <div
             onClick={(e) => e.stopPropagation()}
-            className="max-h-[82vh] w-full max-w-3xl"
+            className="lb-panel max-h-[82vh] w-full max-w-3xl"
           >
-            <ImageFrame label={t("imageLabel")} aspect="aspect-[4/3]" />
+            <div
+              key={open}
+              className={`lb-slide ${dir > 0 ? "from-right" : "from-left"}`}
+            >
+              <ImageFrame label={t("imageLabel")} aspect="aspect-[4/3]" />
+            </div>
           </div>
 
           <button
