@@ -101,7 +101,10 @@
     "prev": "Previous",
     "next": "Next",
     "save": "Save",
-    "all": "All"
+    "all": "All",
+    "loading": "Loading photos…",
+    "loadMore": "Show more photos",
+    "fallback": "Live gallery is unavailable right now, showing sample tiles."
   },
   "commentsPage": {
     "eyebrow": "Reviews",
@@ -118,11 +121,13 @@
       "submitting": "Sending…",
       "thanksTitle": "Thank you!",
       "thanksBody": "Your review has been published.",
-      "again": "Write another"
+      "again": "Write another",
+      "error": "We could not send your review. Please try again."
     },
     "list": {
       "shopReply": "Reply from the shop",
       "count": "{count, plural, =0 {No reviews yet} one {# review} other {# reviews}}",
+      "loading": "Loading reviews…",
       "loadMore": "Show {count} more",
       "items": {
         "a": {

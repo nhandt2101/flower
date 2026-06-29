@@ -1,11 +1,14 @@
 type ImageFrameProps = {
   /** Caption shown inside the placeholder until a real photo is added. */
   label?: string;
+  src?: string;
+  alt?: string;
   /** Tailwind aspect-ratio class, e.g. "aspect-[4/3]". */
   aspect?: string;
   className?: string;
   /** Enable subtle zoom on hover (for gallery/occasion tiles). */
   hover?: boolean;
+  fit?: "cover" | "contain";
   /**
    * "flat" drops the matted padding for an edge-to-edge tile (Pinterest-style
    * masonry); "matted" keeps the signature silver double frame (default).
@@ -20,9 +23,12 @@ type ImageFrameProps = {
  */
 export function ImageFrame({
   label,
+  src,
+  alt = "",
   aspect = "aspect-[4/3]",
   className = "",
   hover = false,
+  fit = "cover",
   flat = false,
 }: ImageFrameProps) {
   return (
@@ -34,20 +40,31 @@ export function ImageFrame({
       <div
         className={`group overflow-hidden ${flat ? "rounded-lg" : "rounded-sm"} ${aspect}`}
       >
-        <div
-          className={`flex h-full w-full items-center justify-center bg-gradient-to-br from-silver-soft to-[#dfe1e2] transition-transform duration-700 ease-out ${
-            hover ? "group-hover:scale-105" : ""
-          }`}
-        >
-          <div className="flex flex-col items-center gap-3 text-muted">
-            <FlowerMark />
-            {label ? (
-              <span className="text-[0.7rem] font-medium uppercase tracking-[0.18em]">
-                {label}
-              </span>
-            ) : null}
+        {src ? (
+          <img
+            src={src}
+            alt={alt || label || ""}
+            loading="lazy"
+            className={`h-full w-full bg-silver-soft transition-transform duration-700 ease-out ${
+              fit === "contain" ? "object-contain" : "object-cover"
+            } ${hover ? "group-hover:scale-105" : ""}`}
+          />
+        ) : (
+          <div
+            className={`flex h-full w-full items-center justify-center bg-gradient-to-br from-silver-soft to-[#dfe1e2] transition-transform duration-700 ease-out ${
+              hover ? "group-hover:scale-105" : ""
+            }`}
+          >
+            <div className="flex flex-col items-center gap-3 text-muted">
+              <FlowerMark />
+              {label ? (
+                <span className="text-[0.7rem] font-medium uppercase tracking-[0.18em]">
+                  {label}
+                </span>
+              ) : null}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

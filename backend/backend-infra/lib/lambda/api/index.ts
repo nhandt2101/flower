@@ -179,6 +179,45 @@ async function findItemById(kind: "COMMENT" | "IMAGE", id: string) {
   return res.Items?.[0];
 }
 
+async function queryActiveImages(params: {
+  category?: ImageCategory;
+  limit: number;
+  cursor?: Record<string, unknown>;
+}) {
+  const items: Record<string, any>[] = [];
+  let lastKey = params.cursor;
+
+  do {
+    const remaining = params.limit - items.length;
+    const res = await ddb.send(
+      new QueryCommand({
+        TableName: TABLE_NAME,
+        IndexName: params.category ? "byCategory" : undefined,
+        KeyConditionExpression: params.category ? "GSI2PK = :pk" : "PK = :pk",
+        FilterExpression: "#s = :active",
+        ExpressionAttributeNames: {
+          "#s": "status",
+        },
+        ExpressionAttributeValues: {
+          ":pk": params.category ? `IMG#${params.category}` : "IMAGE",
+          ":active": "active",
+        },
+        Limit: remaining,
+        ExclusiveStartKey: lastKey,
+        ScanIndexForward: false,
+      }),
+    );
+
+    items.push(...(res.Items || []));
+    lastKey = res.LastEvaluatedKey;
+  } while (items.length < params.limit && lastKey);
+
+  return {
+    items,
+    nextCursor: encodeCursor(lastKey),
+  };
+}
+
 function imageKeyFromObjectKey(objectKey: string, imageId: string) {
   if (!objectKey.startsWith(UPLOADS_PREFIX)) return null;
   const fileName = objectKey.slice(UPLOADS_PREFIX.length);
@@ -276,30 +315,15 @@ export const handler = async (event: any) => {
         return error(400, "invalid_category", "Invalid image category");
       }
 
-      const res = await ddb.send(
-        new QueryCommand({
-          TableName: TABLE_NAME,
-          IndexName: category ? "byCategory" : undefined,
-          KeyConditionExpression: category
-            ? "GSI2PK = :pk"
-            : "PK = :pk",
-          FilterExpression: "#s = :active",
-          ExpressionAttributeNames: {
-            "#s": "status",
-          },
-          ExpressionAttributeValues: {
-            ":pk": category ? `IMG#${category}` : "IMAGE",
-            ":active": "active",
-          },
-          Limit: limit,
-          ExclusiveStartKey: cursor,
-          ScanIndexForward: false,
-        }),
-      );
+      const res = await queryActiveImages({
+        category: category as ImageCategory | undefined,
+        limit,
+        cursor,
+      });
 
       return ok(200, {
-        items: (res.Items || []).map(galleryImage),
-        nextCursor: encodeCursor(res.LastEvaluatedKey),
+        items: res.items.map(galleryImage),
+        nextCursor: res.nextCursor,
       });
     }
 

@@ -91,8 +91,12 @@ export class FlowerBackendStack extends cdk.Stack {
     });
     const turnstileSecret =
       process.env.TURNSTILE_SECRET ??
-      this.node.tryGetContext("turnstileSecret") ??
-      "1x0000000000000000000000000000000AA";
+      this.node.tryGetContext("turnstileSecret");
+    if (!turnstileSecret) {
+      throw new Error(
+        "Missing Turnstile secret. Set TURNSTILE_SECRET or pass -c turnstileSecret=...",
+      );
+    }
 
     const commonEnvironment = {
       TABLE_NAME: table.tableName,
@@ -134,6 +138,8 @@ export class FlowerBackendStack extends cdk.Stack {
       bundling: {
         externalModules: [],
         nodeModules: ["sharp"],
+        forceDockerBundling: true,
+        platform: "linux/arm64",
       },
       environment: {
         ...commonEnvironment,

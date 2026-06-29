@@ -1,10 +1,34 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
+import { listImages } from "@/lib/api/images";
+import type { GalleryImage } from "@/lib/api/types";
 import { Reveal } from "../ui/Reveal";
 import { ImageFrame } from "../ui/ImageFrame";
 
 export function FeaturedGallery() {
   const t = useTranslations("featured");
+  const [images, setImages] = useState<GalleryImage[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    listImages({ limit: 3 })
+      .then((page) => {
+        if (!cancelled) setImages(page.items.slice(0, 3));
+      })
+      .catch(() => {
+        if (!cancelled) setImages([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const slots = images.length > 0 ? images : [0, 1, 2];
 
   return (
     <section className="border-t border-silver-soft bg-surface">
@@ -19,15 +43,21 @@ export function FeaturedGallery() {
         </Reveal>
 
         <div className="mt-14 grid gap-6 sm:grid-cols-2 md:grid-cols-3">
-          {[0, 1, 2].map((i) => (
-            <Reveal key={i} delay={i * 120}>
+          {slots.map((item, i) => {
+            const image = typeof item === "number" ? null : item;
+            const key = image ? image.id : `placeholder-${item}`;
+            return (
+            <Reveal key={key} delay={i * 120}>
               <ImageFrame
                 label={t("imageLabel")}
+                src={image?.thumbUrl}
+                alt={image?.alt || t("imageLabel")}
                 aspect={i === 1 ? "aspect-[3/4]" : "aspect-[4/5]"}
                 hover
               />
             </Reveal>
-          ))}
+            );
+          })}
         </div>
 
         <Reveal className="mt-12">

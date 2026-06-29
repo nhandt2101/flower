@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
+import { listImages } from "@/lib/api/images";
+import type { GalleryImage, ImageCategory } from "@/lib/api/types";
 import { ImageFrame } from "../ui/ImageFrame";
 
 // Filter tabs map to the shop's occasion categories. "other" images (shop /
@@ -11,9 +13,15 @@ const CATEGORIES = ["wedding", "birthday", "funeral"] as const;
 type Category = (typeof CATEGORIES)[number] | "other";
 type Filter = "all" | (typeof CATEGORIES)[number];
 
-// Placeholder tiles — replace with real GalleryImage data from GET /images.
 // Grid uses thumbUrl, lightbox uses url. Category drives the filter.
-type Tile = { aspect: string; category: Category; url?: string; alt?: string };
+type Tile = {
+  id: string;
+  aspect: string;
+  category: Category;
+  url?: string;
+  thumbUrl?: string;
+  alt?: string;
+};
 
 const ASPECTS = [
   "aspect-[3/4]", "aspect-[1/1]", "aspect-[3/5]", "aspect-[4/3]", "aspect-[3/4]",
@@ -22,6 +30,7 @@ const ASPECTS = [
 ];
 const CYCLE: Category[] = ["wedding", "birthday", "funeral", "other"];
 const TILES: Tile[] = ASPECTS.map((aspect, i) => ({
+  id: `placeholder-${i}`,
   aspect,
   category: CYCLE[i % CYCLE.length],
 }));
@@ -51,14 +60,66 @@ export function GalleryGrid() {
   const t = useTranslations("galleryPage");
   const to = useTranslations("occasions");
   const [filter, setFilter] = useState<Filter>("all");
+  const [images, setImages] = useState<GalleryImage[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [failed, setFailed] = useState(false);
   const [open, setOpen] = useState<number | null>(null);
   const [visible, setVisible] = useState(false); // drives enter/exit fade+scale
   const [dir, setDir] = useState<1 | -1>(1); // slide direction on switch
 
-  const items = useMemo(
-    () => (filter === "all" ? TILES : TILES.filter((tile) => tile.category === filter)),
+  const items = useMemo<Tile[]>(() => {
+    if (images.length === 0) {
+      return filter === "all" ? TILES : TILES.filter((tile) => tile.category === filter);
+    }
+    return images.map((image, i) => ({
+      id: image.id,
+      aspect: ASPECTS[i % ASPECTS.length],
+      category: image.category,
+      url: image.url,
+      thumbUrl: image.thumbUrl,
+      alt: image.alt,
+    }));
+  }, [filter, images]);
+
+  const fetchImages = useCallback(
+    async (cursor?: string) => {
+      if (cursor) {
+        setLoadingMore(true);
+      } else {
+        setLoading(true);
+        setFailed(false);
+      }
+
+      try {
+        const page = await listImages({
+          category: filter === "all" ? undefined : (filter as ImageCategory),
+          cursor,
+          limit: 24,
+        });
+        setImages((current) => (cursor ? [...current, ...page.items] : page.items));
+        setNextCursor(page.nextCursor);
+      } catch {
+        setFailed(true);
+        if (!cursor) {
+          setImages([]);
+          setNextCursor(null);
+        }
+      } finally {
+        setLoading(false);
+        setLoadingMore(false);
+      }
+    },
     [filter],
   );
+
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      void fetchImages();
+    }, 0);
+    return () => window.clearTimeout(id);
+  }, [fetchImages]);
 
   const openAt = useCallback((i: number) => {
     setDir(1);
@@ -97,6 +158,8 @@ export function GalleryGrid() {
   const selectFilter = (f: Filter) => {
     setOpen(null); // indexes change with the filter
     setVisible(false);
+    setImages([]);
+    setNextCursor(null);
     setFilter(f);
   };
 
@@ -109,7 +172,6 @@ export function GalleryGrid() {
 
   return (
     <>
-      {/* Filter tabs */}
       <div className="mb-10 flex flex-wrap gap-2">
         {tabs.map((tab) => {
           const active = filter === tab.key;
@@ -131,19 +193,45 @@ export function GalleryGrid() {
         })}
       </div>
 
+      {failed ? (
+        <p className="mb-6 text-sm text-muted">{t("fallback")}</p>
+      ) : null}
+
       <div className="columns-2 gap-4 md:columns-3 lg:columns-4 [&>*]:mb-4">
         {items.map((tile, i) => (
           <button
-            key={`${filter}-${i}`}
+            key={tile.id}
             type="button"
             onClick={() => openAt(i)}
             aria-label={`${t("imageLabel")} ${i + 1}`}
             className="block w-full break-inside-avoid rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
-            <ImageFrame label={t("imageLabel")} aspect={tile.aspect} hover flat />
+            <ImageFrame
+              label={t("imageLabel")}
+              src={tile.thumbUrl}
+              alt={tile.alt || `${t("imageLabel")} ${i + 1}`}
+              aspect={tile.aspect}
+              hover
+              flat
+            />
           </button>
         ))}
       </div>
+
+      {loading ? (
+        <p className="mt-8 text-sm text-muted">{t("loading")}</p>
+      ) : nextCursor ? (
+        <button
+          type="button"
+          onClick={() => {
+            if (nextCursor) void fetchImages(nextCursor);
+          }}
+          disabled={loadingMore}
+          className="mt-10 rounded-sm border border-silver px-7 py-3 text-sm tracking-wide text-foreground transition-colors hover:border-accent hover:text-accent disabled:opacity-60"
+        >
+          {loadingMore ? t("loading") : t("loadMore")}
+        </button>
+      ) : null}
 
       {open !== null && current && (
         <div
@@ -206,7 +294,13 @@ export function GalleryGrid() {
               key={open}
               className={`lb-slide ${dir > 0 ? "from-right" : "from-left"}`}
             >
-              <ImageFrame label={t("imageLabel")} aspect="aspect-[4/3]" />
+              <ImageFrame
+                label={t("imageLabel")}
+                src={current.url}
+                alt={current.alt || t("imageLabel")}
+                aspect="aspect-[4/3]"
+                fit="contain"
+              />
             </div>
           </div>
 

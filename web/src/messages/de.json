@@ -101,7 +101,10 @@
     "prev": "Vorheriges",
     "next": "Nächstes",
     "save": "Speichern",
-    "all": "Alle"
+    "all": "Alle",
+    "loading": "Bilder werden geladen…",
+    "loadMore": "Weitere Bilder anzeigen",
+    "fallback": "Die Live-Galerie ist gerade nicht erreichbar, es werden Beispielkacheln angezeigt."
   },
   "commentsPage": {
     "eyebrow": "Bewertungen",
@@ -118,11 +121,13 @@
       "submitting": "Wird gesendet…",
       "thanksTitle": "Vielen Dank!",
       "thanksBody": "Ihre Bewertung wurde veröffentlicht.",
-      "again": "Weitere schreiben"
+      "again": "Weitere schreiben",
+      "error": "Ihre Bewertung konnte nicht gesendet werden. Bitte versuchen Sie es erneut."
     },
     "list": {
       "shopReply": "Antwort des Geschäfts",
       "count": "{count, plural, =0 {Noch keine Bewertungen} one {# Bewertung} other {# Bewertungen}}",
+      "loading": "Bewertungen werden geladen…",
       "loadMore": "Weitere {count} anzeigen",
       "items": {
         "a": {

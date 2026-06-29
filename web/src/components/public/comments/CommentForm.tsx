@@ -2,22 +2,39 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
+import { createComment } from "@/lib/api/comments";
 import { Turnstile } from "./Turnstile";
 
-type Status = "idle" | "submitting" | "done";
+type Status = "idle" | "submitting" | "done" | "error";
 
 export function CommentForm() {
   const t = useTranslations("commentsPage.form");
   const [status, setStatus] = useState<Status>("idle");
   const [captchaToken, setCaptchaToken] = useState("");
+  const [captchaKey, setCaptchaKey] = useState(0);
 
-  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!captchaToken) return;
-    // TODO: createComment({ name, email, content, captchaToken }) → Lambda
-    // verifies the token and writes to DynamoDB. Front-end-only for now.
+
+    const form = e.currentTarget;
+    const data = new FormData(form);
+    const name = String(data.get("name") ?? "");
+    const email = String(data.get("email") ?? "");
+    const content = String(data.get("message") ?? "");
+
     setStatus("submitting");
-    setTimeout(() => setStatus("done"), 600);
+    try {
+      await createComment({ name, email, content, captchaToken });
+      form.reset();
+      setCaptchaToken("");
+      setCaptchaKey((key) => key + 1);
+      setStatus("done");
+    } catch {
+      setCaptchaToken("");
+      setCaptchaKey((key) => key + 1);
+      setStatus("error");
+    }
   };
 
   if (status === "done") {
@@ -27,7 +44,11 @@ export function CommentForm() {
         <p className="mt-2 text-sm text-muted">{t("thanksBody")}</p>
         <button
           type="button"
-          onClick={() => setStatus("idle")}
+          onClick={() => {
+            setCaptchaToken("");
+            setCaptchaKey((key) => key + 1);
+            setStatus("idle");
+          }}
           className="mt-6 text-sm tracking-wide text-foreground hover:text-accent"
         >
           {t("again")} →
@@ -77,10 +98,15 @@ export function CommentForm() {
       {/* Cloudflare Turnstile — token verified server-side (Lambda) before write. */}
       <div className="mt-5">
         <Turnstile
+          key={captchaKey}
           onVerify={setCaptchaToken}
           onExpire={() => setCaptchaToken("")}
         />
       </div>
+
+      {status === "error" ? (
+        <p className="mt-4 text-sm text-red-700">{t("error")}</p>
+      ) : null}
 
       <button
         type="submit"

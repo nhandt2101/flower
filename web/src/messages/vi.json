@@ -101,7 +101,10 @@
     "prev": "Trước",
     "next": "Tiếp",
     "save": "Lưu",
-    "all": "Tất cả"
+    "all": "Tất cả",
+    "loading": "Đang tải ảnh…",
+    "loadMore": "Xem thêm ảnh",
+    "fallback": "Thư viện ảnh thật hiện chưa tải được, đang hiển thị ảnh mẫu."
   },
   "commentsPage": {
     "eyebrow": "Bình luận",
@@ -118,11 +121,13 @@
       "submitting": "Đang gửi…",
       "thanksTitle": "Cảm ơn bạn!",
       "thanksBody": "Bình luận của bạn đã được đăng.",
-      "again": "Viết bình luận khác"
+      "again": "Viết bình luận khác",
+      "error": "Chưa gửi được bình luận. Vui lòng thử lại."
     },
     "list": {
       "shopReply": "Phản hồi của cửa hàng",
       "count": "{count, plural, other {# bình luận}}",
+      "loading": "Đang tải bình luận…",
       "loadMore": "Xem thêm {count} bình luận",
       "items": {
         "a": {

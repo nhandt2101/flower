@@ -86,8 +86,8 @@ async function processRecord(record: any): Promise<void> {
     );
   await Promise.all([put(fullKey, full.data), put(thumbKey, thumb)]);
 
-  const url = `${CDN_BASE_URL}/${fullKey}`;
-  const thumbUrl = `${CDN_BASE_URL}/${thumbKey}`;
+  const url = `${CDN_BASE_URL}/${cdnPath(fullKey)}`;
+  const thumbUrl = `${CDN_BASE_URL}/${cdnPath(thumbKey)}`;
   await ddb.send(
     new UpdateCommand({
       TableName: TABLE_NAME,
@@ -120,4 +120,8 @@ function requireEnv(name: string): string {
   const value = process.env[name];
   if (!value) throw new Error(`Missing required env var: ${name}`);
   return value;
+}
+
+function cdnPath(key: string): string {
+  return key.startsWith(PUBLIC_PREFIX) ? key.slice(PUBLIC_PREFIX.length) : key;
 }
