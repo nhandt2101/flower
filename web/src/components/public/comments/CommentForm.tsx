@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { useTranslations } from "next-intl";
+import { createComment } from "@/lib/api/comments";
 import { Turnstile } from "./Turnstile";
 
 type Status = "idle" | "submitting" | "done";
@@ -10,14 +11,38 @@ export function CommentForm() {
   const t = useTranslations("commentsPage.form");
   const [status, setStatus] = useState<Status>("idle");
   const [captchaToken, setCaptchaToken] = useState("");
+  const [error, setError] = useState("");
 
-  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!captchaToken) return;
-    // TODO: createComment({ name, email, content, captchaToken }) → Lambda
-    // verifies the token and writes to DynamoDB. Front-end-only for now.
+  const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError("");
+
+    if (!captchaToken) {
+      setError("Please complete the verification before submitting.");
+      return;
+    }
+
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    const name = String(formData.get("name") ?? "").trim();
+    const email = String(formData.get("email") ?? "").trim();
+    const content = String(formData.get("message") ?? "").trim();
+
+    if (!name || !email || !content) {
+      setError("Please fill in all required fields.");
+      return;
+    }
+
     setStatus("submitting");
-    setTimeout(() => setStatus("done"), 600);
+    try {
+      await createComment({ name, email, content, captchaToken });
+      form.reset();
+      setCaptchaToken("");
+      setStatus("done");
+    } catch (err) {
+      setStatus("idle");
+      setError(err instanceof Error ? err.message : "Comment submission failed.");
+    }
   };
 
   if (status === "done") {
@@ -74,13 +99,14 @@ export function CommentForm() {
         </Field>
       </div>
 
-      {/* Cloudflare Turnstile — token verified server-side (Lambda) before write. */}
       <div className="mt-5">
         <Turnstile
           onVerify={setCaptchaToken}
           onExpire={() => setCaptchaToken("")}
         />
       </div>
+
+      {error ? <p className="mt-4 rounded-sm bg-rose-100 px-4 py-3 text-sm text-rose-700">{error}</p> : null}
 
       <button
         type="submit"

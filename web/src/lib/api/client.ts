@@ -1,7 +1,7 @@
 import type { ApiErrorBody } from "./types";
 
 /** Backend base URL (API Gateway / Lambda Function URL). Set per environment. */
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
+export const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/+$/, "");
 
 export class ApiError extends Error {
   readonly status: number;

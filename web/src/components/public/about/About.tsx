@@ -1,9 +1,20 @@
+"use client";
+
 import { useTranslations } from "next-intl";
+import { useShopSettings } from "@/hooks/useShopSettings";
 import { Reveal } from "../ui/Reveal";
 import { ImageFrame } from "../ui/ImageFrame";
 
 export function About() {
   const t = useTranslations("about");
+  const settings = useShopSettings({
+    storeName: "Tường Vi Flower",
+    phone: t("hotline"),
+    address: t("address"),
+    googleMapsUrl: "https://www.google.com/maps",
+    openingHours: t("hours"),
+    locale: "vi",
+  });
 
   return (
     <section className="mx-auto max-w-6xl px-6 py-20 md:py-28">
@@ -28,19 +39,19 @@ export function About() {
               <dt className="text-xs uppercase tracking-[0.15em] text-muted">
                 {t("addressLabel")}
               </dt>
-              <dd className="mt-1 text-foreground">{t("address")}</dd>
+              <dd className="mt-1 text-foreground">{settings.address}</dd>
             </div>
             <div>
               <dt className="text-xs uppercase tracking-[0.15em] text-muted">
                 {t("hotlineLabel")}
               </dt>
-              <dd className="mt-1 text-foreground">{t("hotline")}</dd>
+              <dd className="mt-1 text-foreground">{settings.phone}</dd>
             </div>
             <div>
               <dt className="text-xs uppercase tracking-[0.15em] text-muted">
                 {t("hoursLabel")}
               </dt>
-              <dd className="mt-1 text-foreground">{t("hours")}</dd>
+              <dd className="mt-1 whitespace-pre-line text-foreground">{settings.openingHours}</dd>
             </div>
           </dl>
         </Reveal>

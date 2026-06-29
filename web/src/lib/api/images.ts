@@ -62,6 +62,13 @@ export function registerImage(token: string, input: RegisterImageRequest) {
   });
 }
 
+export function reprocessImage(token: string, id: string) {
+  return apiFetch<AdminImage>(`/admin/images/${id}/reprocess`, {
+    method: "POST",
+    token,
+  });
+}
+
 export function deleteImage(token: string, id: string) {
   return apiFetch<void>(`/admin/images/${id}`, { method: "DELETE", token });
 }
