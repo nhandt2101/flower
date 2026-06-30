@@ -111,7 +111,7 @@ export class FlowerBackendStack extends cdk.Stack {
       depsLockFilePath,
       handler: "handler",
       runtime: lambda.Runtime.NODEJS_20_X,
-      architecture: lambda.Architecture.ARM_64,
+      architecture: lambda.Architecture.X86_64,
       timeout: cdk.Duration.seconds(10),
       memorySize: 256,
       bundling: {
@@ -133,14 +133,14 @@ export class FlowerBackendStack extends cdk.Stack {
       depsLockFilePath,
       handler: "handler",
       runtime: lambda.Runtime.NODEJS_20_X,
-      architecture: lambda.Architecture.ARM_64,
+      architecture: lambda.Architecture.X86_64,
       timeout: cdk.Duration.seconds(30),
       memorySize: 1024,
       bundling: {
         externalModules: [],
         nodeModules: ["sharp"],
         forceDockerBundling: true,
-        platform: "linux/arm64",
+        platform: "linux/amd64",
       },
       environment: {
         ...commonEnvironment,

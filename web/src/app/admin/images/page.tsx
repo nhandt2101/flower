@@ -16,20 +16,47 @@ import {
 import type { AdminImage, ImageCategory, LandingImageSlot } from "@/lib/api/types";
 
 const categories: { value: ImageCategory; label: string }[] = [
-  { value: "wedding", label: "Đám cưới" },
-  { value: "birthday", label: "Sinh nhật" },
-  { value: "funeral", label: "Tang lễ" },
-  { value: "other", label: "Khác" },
+  { value: "wedding", label: "Wedding" },
+  { value: "birthday", label: "Birthday" },
+  { value: "funeral", label: "Funeral" },
+  { value: "other", label: "Shop / other" },
 ];
+
 const landingSlots: { value: "" | LandingImageSlot; label: string }[] = [
-  { value: "", label: "Chỉ trong gallery" },
-  { value: "hero", label: "Hero trang chủ" },
-  { value: "about", label: "Ảnh giới thiệu cửa hàng" },
-  { value: "wedding", label: "Landing: đám cưới" },
-  { value: "birthday", label: "Landing: sinh nhật/tiệc" },
-  { value: "funeral", label: "Landing: tang lễ" },
-  { value: "featured", label: "Ảnh nổi bật trang chủ" },
+  { value: "", label: "Gallery only" },
+  { value: "hero", label: "Home hero" },
+  { value: "about", label: "Our shop" },
+  { value: "wedding", label: "Home wedding" },
+  { value: "birthday", label: "Home birthday" },
+  { value: "funeral", label: "Home funeral" },
+  { value: "featured", label: "Featured gallery" },
 ];
+
+const statusStyles = {
+  active: "bg-emerald-100 text-emerald-700 ring-emerald-200",
+  processing: "bg-amber-100 text-amber-700 ring-amber-200",
+  failed: "bg-rose-100 text-rose-700 ring-rose-200",
+  unknown: "bg-slate-100 text-slate-700 ring-slate-200",
+};
+
+const uploadStatusStyles = {
+  queued: "bg-slate-100 text-slate-600 ring-slate-200",
+  uploading: "bg-sky-100 text-sky-700 ring-sky-200",
+  done: "bg-emerald-100 text-emerald-700 ring-emerald-200",
+  error: "bg-rose-100 text-rose-700 ring-rose-200",
+};
+
+const MAX_BULK_FILES = 30;
+const UPLOAD_CONCURRENCY = 3;
+
+type UploadStatus = keyof typeof uploadStatusStyles;
+
+type UploadItem = {
+  id: string;
+  file: File;
+  status: UploadStatus;
+  note?: string;
+};
 
 function formatBytes(value: number) {
   if (!Number.isFinite(value) || value <= 0) return "0 KB";
@@ -41,16 +68,27 @@ function formatBytes(value: number) {
 function formatDate(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat("vi-VN", {
+  return new Intl.DateTimeFormat("en", {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(date);
 }
 
+function imageStatus(image: AdminImage): "active" | "processing" | "failed" | "unknown" {
+  if (image.status === "failed") return "failed";
+  if (image.status === "active" && image.url && image.thumbUrl) return "active";
+  if (image.status === "processing" || !image.url || !image.thumbUrl) return "processing";
+  return "unknown";
+}
+
+function uploadItemId(file: File, index: number) {
+  return `${file.name}-${file.size}-${file.lastModified}-${index}`;
+}
+
 export default function AdminImagesPage() {
   const [token, setToken] = useState("");
   const [images, setImages] = useState<AdminImage[]>([]);
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [uploadItems, setUploadItems] = useState<UploadItem[]>([]);
   const [category, setCategory] = useState<ImageCategory>("wedding");
   const [landingSlot, setLandingSlot] = useState<"" | LandingImageSlot>("");
   const [alt, setAlt] = useState("");
@@ -73,7 +111,12 @@ export default function AdminImagesPage() {
   const [savingId, setSavingId] = useState<string | null>(null);
 
   const processingCount = useMemo(
-    () => images.filter((item) => item.status !== "active" || !item.url || !item.thumbUrl).length,
+    () => images.filter((item) => imageStatus(item) === "processing").length,
+    [images],
+  );
+
+  const activeCount = useMemo(
+    () => images.filter((item) => imageStatus(item) === "active").length,
     [images],
   );
 
@@ -84,7 +127,7 @@ export default function AdminImagesPage() {
       const data = await listAdminImages(authToken, { limit: 50 });
       setImages(data.items);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Không tải được danh sách ảnh.");
+      setError(err instanceof Error ? err.message : "Could not load images.");
     } finally {
       setLoading(false);
     }
@@ -110,18 +153,26 @@ export default function AdminImagesPage() {
   const handleFileSelection = (event: ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files) return;
-    setSelectedFiles(Array.from(files).slice(0, 8));
+    const nextItems = Array.from(files)
+      .slice(0, MAX_BULK_FILES)
+      .map((file, index) => ({
+        id: uploadItemId(file, index),
+        file,
+        status: "queued" as const,
+      }));
+    setUploadItems(nextItems);
     setMessage("");
     setError("");
+    event.target.value = "";
   };
 
   const handleUpload = async () => {
     if (!token) {
-      setError("Phiên đăng nhập admin không hợp lệ.");
+      setError("Your admin session is no longer valid.");
       return;
     }
-    if (selectedFiles.length === 0) {
-      setMessage("Vui lòng chọn ảnh để tải lên.");
+    if (uploadItems.length === 0) {
+      setMessage("Choose at least one image to upload.");
       return;
     }
 
@@ -129,8 +180,21 @@ export default function AdminImagesPage() {
     setError("");
     setMessage("");
 
-    try {
-      for (const file of selectedFiles) {
+    const selectedItems = uploadItems;
+    let successCount = 0;
+    let failureCount = 0;
+    let nextIndex = 0;
+
+    const updateUploadItem = (id: string, patch: Partial<UploadItem>) => {
+      setUploadItems((current) =>
+        current.map((item) => (item.id === id ? { ...item, ...patch } : item)),
+      );
+    };
+
+    const uploadOne = async (item: UploadItem) => {
+      const { file } = item;
+      updateUploadItem(item.id, { status: "uploading", note: "Uploading" });
+      try {
         const upload = await requestUploadUrl(token, {
           fileName: file.name,
           contentType: file.type,
@@ -144,17 +208,47 @@ export default function AdminImagesPage() {
           landingSlot: landingSlot || undefined,
           alt: alt.trim() || file.name,
         });
+        successCount += 1;
+        updateUploadItem(item.id, { status: "done", note: "Uploaded" });
+      } catch (err) {
+        failureCount += 1;
+        updateUploadItem(item.id, {
+          status: "error",
+          note: err instanceof Error ? err.message : "Upload failed",
+        });
+      }
+    };
+
+    const workers = Array.from(
+      { length: Math.min(UPLOAD_CONCURRENCY, selectedItems.length) },
+      async () => {
+        while (nextIndex < selectedItems.length) {
+          const item = selectedItems[nextIndex];
+          nextIndex += 1;
+          await uploadOne(item);
+        }
+      },
+    );
+
+    try {
+      await Promise.all(workers);
+
+      if (successCount > 0) {
+        await loadImages(token);
       }
 
-      setSelectedFiles([]);
       setAlt("");
       setLandingSlot("");
-      setMessage(
-        `Đã tải lên ${selectedFiles.length} ảnh. Ảnh sẽ xuất hiện công khai sau khi bộ xử lý tạo WebP xong.`,
-      );
-      await loadImages(token);
+      setUploadItems((current) => current.filter((item) => item.status === "error"));
+
+      if (successCount > 0) {
+        setMessage(`${successCount} image${successCount === 1 ? "" : "s"} uploaded. Processing may take a moment.`);
+      }
+      if (failureCount > 0) {
+        setError(`${failureCount} image${failureCount === 1 ? "" : "s"} failed. Check the list and try again.`);
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Tải ảnh lên không thành công.");
+      setError(err instanceof Error ? err.message : "Upload failed.");
     } finally {
       setUploading(false);
     }
@@ -162,7 +256,7 @@ export default function AdminImagesPage() {
 
   const handleDelete = async (id: string) => {
     if (!token) {
-      setError("Phiên đăng nhập admin không hợp lệ.");
+      setError("Your admin session is no longer valid.");
       return;
     }
 
@@ -172,9 +266,9 @@ export default function AdminImagesPage() {
     try {
       await deleteImage(token, id);
       setImages((current) => current.filter((item) => item.id !== id));
-      setMessage("Ảnh đã được xóa khỏi thư viện.");
+      setMessage("Image deleted.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Không xóa được ảnh.");
+      setError(err instanceof Error ? err.message : "Could not delete image.");
     } finally {
       setDeletingId(null);
     }
@@ -182,7 +276,7 @@ export default function AdminImagesPage() {
 
   const handleReprocess = async (id: string) => {
     if (!token) {
-      setError("Phiên đăng nhập admin không hợp lệ.");
+      setError("Your admin session is no longer valid.");
       return;
     }
 
@@ -191,9 +285,9 @@ export default function AdminImagesPage() {
     setMessage("");
     try {
       await reprocessImage(token, id);
-      setMessage("Đã gửi ảnh vào hàng xử lý lại. Vui lòng đợi vài giây rồi bấm Làm mới.");
+      setMessage("Image sent for processing. Wait a few seconds, then refresh.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Không xử lý lại được ảnh.");
+      setError(err instanceof Error ? err.message : "Could not reprocess image.");
     } finally {
       setReprocessingId(null);
     }
@@ -231,7 +325,7 @@ export default function AdminImagesPage() {
 
   const handleSaveMetadata = async (image: AdminImage) => {
     if (!token) {
-      setError("Phiên đăng nhập admin không hợp lệ.");
+      setError("Your admin session is no longer valid.");
       return;
     }
 
@@ -253,9 +347,9 @@ export default function AdminImagesPage() {
         delete next[image.id];
         return next;
       });
-      setMessage("Metadata ảnh đã được cập nhật.");
+      setMessage("Image details saved.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Không cập nhật được metadata ảnh.");
+      setError(err instanceof Error ? err.message : "Could not save image details.");
     } finally {
       setSavingId(null);
     }
@@ -263,27 +357,33 @@ export default function AdminImagesPage() {
 
   return (
     <AdminGuard>
-      <AdminShell title="Quản lý hình ảnh">
-        <section className="grid gap-6">
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <p className="text-sm uppercase tracking-[0.24em] text-slate-500">Thư viện ảnh</p>
-                <h2 className="mt-2 text-2xl font-semibold text-slate-900">Tải ảnh mới lên</h2>
-                <p className="mt-2 text-sm text-slate-600">
-                  Chọn ảnh JPG, PNG hoặc WebP. Backend sẽ lưu ảnh gốc lên S3 và bộ xử lý ảnh sẽ tạo bản WebP qua CloudFront.
+      <AdminShell title="Images">
+        <section className="grid gap-4 lg:gap-6">
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+              <div className="max-w-2xl">
+                <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Image library</p>
+                <h2 className="mt-2 text-2xl font-semibold text-slate-950">Upload new images</h2>
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  Choose JPG, PNG, or WebP images. They will be optimized automatically before appearing on the site.
                 </p>
               </div>
-              <div className="rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-                <p className="font-semibold text-slate-900">Đang xử lý</p>
-                <p>{processingCount} ảnh chưa có URL công khai</p>
+              <div className="grid grid-cols-2 gap-3 text-sm sm:w-auto">
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-700">
+                  <p className="font-semibold">{activeCount}</p>
+                  <p>Ready</p>
+                </div>
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-700">
+                  <p className="font-semibold">{processingCount}</p>
+                  <p>Processing</p>
+                </div>
               </div>
             </div>
 
-            <div className="mt-6 grid gap-4 lg:grid-cols-3">
-              <label className="flex min-h-[150px] flex-col items-center justify-center rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-5 text-center text-slate-500 transition hover:border-slate-400 hover:bg-slate-100">
-                <span className="text-xl font-semibold">Chọn ảnh</span>
-                <span className="mt-2 text-sm">Kéo thả hoặc bấm vào đây</span>
+            <div className="mt-6 grid gap-4 xl:grid-cols-[minmax(220px,0.9fr)_minmax(260px,1fr)_minmax(240px,0.9fr)]">
+              <label className="flex min-h-[150px] cursor-pointer flex-col items-center justify-center rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-5 text-center text-slate-500 transition hover:border-slate-400 hover:bg-slate-100">
+                <span className="text-lg font-semibold text-slate-800">Choose images</span>
+                <span className="mt-2 text-sm">Drop files here or click to browse</span>
                 <input
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
@@ -295,11 +395,11 @@ export default function AdminImagesPage() {
 
               <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
                 <label className="block text-sm font-medium text-slate-700">
-                  Danh mục
+                  Category
                   <select
                     value={category}
                     onChange={(event) => setCategory(event.target.value as ImageCategory)}
-                    className="mt-2 w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none"
+                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none"
                   >
                     {categories.map((item) => (
                       <option key={item.value} value={item.value}>
@@ -309,13 +409,13 @@ export default function AdminImagesPage() {
                   </select>
                 </label>
                 <label className="mt-4 block text-sm font-medium text-slate-700">
-                  Vị trí landing
+                  Site placement
                   <select
                     value={landingSlot}
                     onChange={(event) =>
                       setLandingSlot(event.target.value as "" | LandingImageSlot)
                     }
-                    className="mt-2 w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none"
+                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none"
                   >
                     {landingSlots.map((item) => (
                       <option key={item.value || "gallery"} value={item.value}>
@@ -325,46 +425,64 @@ export default function AdminImagesPage() {
                   </select>
                 </label>
                 <label className="mt-4 block text-sm font-medium text-slate-700">
-                  Mô tả ảnh
+                  Alt text
                   <input
                     value={alt}
                     onChange={(event) => setAlt(event.target.value)}
-                    placeholder="Ví dụ: Bó hoa cưới tông trắng"
-                    className="mt-2 w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none"
+                    placeholder="Example: White wedding bouquet"
+                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none"
                   />
                 </label>
               </div>
 
               <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
-                <p className="font-medium text-slate-800">Ảnh đã chọn</p>
-                <p className="mt-2 text-sm text-slate-600">{selectedFiles.length} file</p>
-                <ul className="mt-4 max-h-24 space-y-2 overflow-auto text-sm text-slate-600">
-                  {selectedFiles.map((file) => (
-                    <li key={`${file.name}-${file.size}`}>
-                      {file.name} · {formatBytes(file.size)}
+                <p className="font-medium text-slate-800">Selected files</p>
+                <p className="mt-2 text-sm text-slate-600">
+                  {uploadItems.length} file{uploadItems.length === 1 ? "" : "s"} selected
+                </p>
+                {uploadItems.length === MAX_BULK_FILES ? (
+                  <p className="mt-2 text-xs text-amber-700">
+                    Only the first {MAX_BULK_FILES} files were added.
+                  </p>
+                ) : null}
+                <ul className="mt-4 max-h-44 space-y-2 overflow-auto text-sm text-slate-600">
+                  {uploadItems.map((item) => (
+                    <li key={item.id} className="rounded-2xl border border-slate-200 bg-white p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="break-all font-medium text-slate-800">{item.file.name}</p>
+                          <p className="mt-1 text-xs text-slate-500">{formatBytes(item.file.size)}</p>
+                          {item.note ? (
+                            <p className="mt-1 break-words text-xs text-slate-500">{item.note}</p>
+                          ) : null}
+                        </div>
+                        <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] ring-1 ${uploadStatusStyles[item.status]}`}>
+                          {item.status}
+                        </span>
+                      </div>
                     </li>
                   ))}
                 </ul>
                 <button
                   type="button"
                   onClick={handleUpload}
-                  disabled={uploading}
-                  className="mt-5 inline-flex w-full items-center justify-center rounded-3xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={uploading || uploadItems.length === 0}
+                  className="mt-5 inline-flex w-full items-center justify-center rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {uploading ? "Đang tải lên..." : "Tải lên ảnh"}
+                  {uploading ? "Uploading batch..." : "Upload selected images"}
                 </button>
               </div>
             </div>
 
-            {message ? <p className="mt-4 rounded-3xl bg-slate-100 px-4 py-3 text-sm text-slate-700">{message}</p> : null}
-            {error ? <p className="mt-4 rounded-3xl bg-rose-100 px-4 py-3 text-sm text-rose-700">{error}</p> : null}
+            {message ? <p className="mt-4 rounded-2xl bg-slate-100 px-4 py-3 text-sm text-slate-700">{message}</p> : null}
+            {error ? <p className="mt-4 rounded-2xl bg-rose-100 px-4 py-3 text-sm text-rose-700">{error}</p> : null}
           </div>
 
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="text-sm uppercase tracking-[0.24em] text-slate-500">Danh sách ảnh</p>
-                <h2 className="mt-2 text-2xl font-semibold text-slate-900">Xem và quản lý</h2>
+                <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Library</p>
+                <h2 className="mt-2 text-2xl font-semibold text-slate-950">Review and manage</h2>
               </div>
               <button
                 type="button"
@@ -372,48 +490,50 @@ export default function AdminImagesPage() {
                 disabled={loading}
                 className="rounded-full border border-slate-200 bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-200 disabled:opacity-60"
               >
-                {loading ? "Đang tải..." : "Làm mới"}
+                {loading ? "Loading..." : "Refresh"}
               </button>
             </div>
 
-            {loading ? <p className="text-sm text-slate-600">Đang tải danh sách ảnh...</p> : null}
-            {!loading && images.length === 0 ? <p className="text-sm text-slate-600">Chưa có ảnh trong thư viện.</p> : null}
+            {loading ? <p className="text-sm text-slate-600">Loading images...</p> : null}
+            {!loading && images.length === 0 ? <p className="text-sm text-slate-600">No images in the library yet.</p> : null}
 
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
               {images.map((image) => {
-                const isProcessing = image.status !== "active" || !image.url || !image.thumbUrl;
+                const status = imageStatus(image);
+                const isProcessing = status === "processing";
                 const draft = draftFor(image);
                 return (
-                  <article key={image.id} className="overflow-hidden rounded-3xl border border-slate-200 bg-slate-50 shadow-sm">
-                    {isProcessing ? (
-                      <div className="flex h-48 items-center justify-center bg-slate-100 text-sm font-medium text-slate-500">
-                        Đang xử lý ảnh...
-                      </div>
-                    ) : (
+                  <article key={image.id} className="min-w-0 overflow-hidden rounded-3xl border border-slate-200 bg-slate-50 shadow-sm">
+                    {status === "active" ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={image.thumbUrl} alt={image.alt || image.id} className="h-48 w-full object-cover" />
+                      <img src={image.thumbUrl} alt={image.alt || image.id} className="h-48 w-full object-cover sm:h-56" />
+                    ) : (
+                      <div className="flex h-48 items-center justify-center bg-slate-100 px-4 text-center text-sm font-medium text-slate-500 sm:h-56">
+                        {status === "failed" ? "Processing failed" : "Processing image..."}
+                      </div>
                     )}
                     <div className="p-4">
                       <div className="mb-3 flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-semibold text-slate-900">{image.alt || image.id}</p>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-slate-950">{image.alt || image.id}</p>
                           <p className="text-xs text-slate-500">
-                            {formatDate(image.createdAt)} · {formatBytes(image.sizeBytes)}
+                            {formatDate(image.createdAt)} - {formatBytes(image.sizeBytes)}
                           </p>
                           <p className="mt-1 text-xs text-slate-500">{image.category}</p>
                           {image.landingSlot ? (
                             <p className="mt-1 text-xs font-semibold text-slate-700">
-                              Landing: {landingSlots.find((item) => item.value === image.landingSlot)?.label ?? image.landingSlot}
+                              {landingSlots.find((item) => item.value === image.landingSlot)?.label ?? image.landingSlot}
                             </p>
                           ) : null}
                         </div>
-                        <span className="rounded-full bg-slate-900 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-white">
-                          {image.status === "failed" ? "Lỗi" : isProcessing ? "Xử lý" : "Hoạt động"}
+                        <span className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] ring-1 ${statusStyles[status]}`}>
+                          {status}
                         </span>
                       </div>
+
                       <div className="mb-4 grid gap-3 rounded-2xl border border-slate-200 bg-white p-3">
                         <label className="block text-xs font-semibold text-slate-600">
-                          Mô tả
+                          Alt text
                           <input
                             value={draft.alt}
                             onChange={(event) =>
@@ -423,7 +543,7 @@ export default function AdminImagesPage() {
                           />
                         </label>
                         <label className="block text-xs font-semibold text-slate-600">
-                          Danh mục
+                          Category
                           <select
                             value={draft.category}
                             onChange={(event) =>
@@ -441,7 +561,7 @@ export default function AdminImagesPage() {
                           </select>
                         </label>
                         <label className="block text-xs font-semibold text-slate-600">
-                          Vị trí landing
+                          Site placement
                           <select
                             value={draft.landingSlot}
                             onChange={(event) =>
@@ -459,23 +579,24 @@ export default function AdminImagesPage() {
                           </select>
                         </label>
                       </div>
+
                       <div className="flex flex-wrap gap-2">
                         <button
                           type="button"
                           onClick={() => handleSaveMetadata(image)}
                           disabled={savingId === image.id}
-                          className="inline-flex items-center rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+                          className="inline-flex items-center rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
                         >
-                          {savingId === image.id ? "Đang lưu..." : "Lưu metadata"}
+                          {savingId === image.id ? "Saving..." : "Save details"}
                         </button>
                         {isProcessing ? (
                           <button
                             type="button"
                             onClick={() => handleReprocess(image.id)}
                             disabled={reprocessingId === image.id}
-                            className="inline-flex items-center rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+                            className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-700 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
                           >
-                            {reprocessingId === image.id ? "Đang gửi..." : "Xử lý lại"}
+                            {reprocessingId === image.id ? "Sending..." : "Retry"}
                           </button>
                         ) : null}
                         <button
@@ -484,7 +605,7 @@ export default function AdminImagesPage() {
                           disabled={deletingId === image.id}
                           className="inline-flex items-center rounded-full bg-rose-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-60"
                         >
-                          {deletingId === image.id ? "Đang xóa..." : "Xóa ảnh"}
+                          {deletingId === image.id ? "Deleting..." : "Delete"}
                         </button>
                       </div>
                     </div>
