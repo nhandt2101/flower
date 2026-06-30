@@ -9,6 +9,7 @@ type GalleryPhotoProps = {
   index?: number;
   className?: string;
   flat?: boolean;
+  useNaturalAspect?: boolean;
 };
 
 export function GalleryPhoto({
@@ -18,11 +19,20 @@ export function GalleryPhoto({
   index = 0,
   className = "",
   flat = false,
+  useNaturalAspect = true,
 }: GalleryPhotoProps) {
-  const layout = image ? getGalleryImageLayout(image, index) : null;
+  const layout = image && useNaturalAspect ? getGalleryImageLayout(image, index) : null;
 
   if (!image?.thumbUrl) {
-    return <ImageFrame label={label} aspect={aspect} hover flat={flat} className={className} />;
+    return (
+      <ImageFrame
+        label={label}
+        aspect={aspect}
+        hover
+        flat={flat}
+        className={className}
+      />
+    );
   }
 
   return (

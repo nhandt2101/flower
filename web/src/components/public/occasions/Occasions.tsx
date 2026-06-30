@@ -54,7 +54,6 @@ export function Occasions() {
 
   const activeService =
     services.find((service) => service.key === active) ?? services[0];
-  const hasCompleteImageSet = services.every((service) => service.image);
 
   return (
     <section className="border-t border-silver-soft bg-surface">
@@ -71,19 +70,9 @@ export function Occasions() {
         </Reveal>
 
         <div
-          className={`mt-14 grid gap-10 ${
-            hasCompleteImageSet
-              ? "lg:grid-cols-[1.05fr_0.95fr] lg:items-start"
-              : ""
-          }`}
+          className="mt-14 grid gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-start"
         >
-          <div
-            className={
-              hasCompleteImageSet
-                ? "border-y border-silver-soft"
-                : "grid border-y border-silver-soft md:grid-cols-3"
-            }
-          >
+          <div className="border-y border-silver-soft">
             {services.map((service, index) => {
               const isActive = service.key === active;
               return (
@@ -91,31 +80,19 @@ export function Occasions() {
                   <article
                     onMouseEnter={() => setActive(service.key)}
                     onFocus={() => setActive(service.key)}
-                    className={
-                      hasCompleteImageSet
-                        ? `group border-b border-silver-soft py-8 transition-colors last:border-b-0 lg:min-h-40 ${
-                            isActive ? "text-foreground" : "text-muted"
-                          }`
-                        : "group flex border-b border-silver-soft py-8 transition-colors last:border-b-0 md:min-h-[18rem] md:border-b-0 md:border-r md:px-8 md:py-10 md:last:border-r-0"
-                    }
+                    className={`group border-b border-silver-soft py-8 transition-colors last:border-b-0 lg:min-h-40 ${
+                      isActive ? "text-foreground" : "text-muted"
+                    }`}
                   >
                     <button
                       type="button"
                       onClick={() => setActive(service.key)}
-                      className={
-                        hasCompleteImageSet
-                          ? "grid w-full gap-4 text-left sm:grid-cols-[4rem_1fr] sm:gap-6"
-                          : "flex min-h-[12rem] w-full flex-col text-left md:min-h-0"
-                      }
+                      className="grid w-full gap-4 text-left sm:grid-cols-[4rem_1fr] sm:gap-6"
                     >
                       <span className="text-xs uppercase tracking-[0.25em] text-accent">
                         {service.number}
                       </span>
-                      <span
-                        className={
-                          hasCompleteImageSet ? "" : "mt-10 block md:mt-auto"
-                        }
-                      >
+                      <span>
                         <span className="block font-serif text-3xl leading-tight text-foreground transition-colors md:text-4xl">
                           {service.title}
                         </span>
@@ -125,40 +102,36 @@ export function Occasions() {
                       </span>
                     </button>
 
-                    {hasCompleteImageSet ? (
-                      <div className="mt-6 lg:hidden">
-                        <EditorialImage
-                          image={service.image}
-                          label={service.label}
-                          aspect="aspect-[4/3]"
-                          className="rounded-sm"
-                        />
-                      </div>
-                    ) : null}
+                    <div className="mt-6 lg:hidden">
+                      <EditorialImage
+                        image={service.image}
+                        label={service.label}
+                        aspect="aspect-[4/3]"
+                        className="rounded-sm"
+                      />
+                    </div>
                   </article>
                 </Reveal>
               );
             })}
           </div>
 
-          {hasCompleteImageSet ? (
-            <Reveal delay={120} className="hidden lg:block">
-              <div className="sticky top-28">
-                <EditorialImage
-                  key={activeService.key}
-                  image={activeService.image}
-                  label={activeService.label}
-                  aspect="aspect-[6/5]"
-                  className="rounded-sm"
-                  overlay
-                />
-                <div className="mt-4 flex items-center justify-between border-t border-silver-soft pt-4 text-xs uppercase tracking-[0.22em] text-muted">
-                  <span>{activeService.label}</span>
-                  <span>{activeService.number} / 03</span>
-                </div>
+          <Reveal delay={120} className="hidden lg:block">
+            <div className="sticky top-28">
+              <EditorialImage
+                key={activeService.key}
+                image={activeService.image}
+                label={activeService.label}
+                aspect="aspect-[6/5]"
+                className="rounded-sm"
+                overlay
+              />
+              <div className="mt-4 flex items-center justify-between border-t border-silver-soft pt-4 text-xs uppercase tracking-[0.22em] text-muted">
+                <span>{activeService.label}</span>
+                <span>{activeService.number} / 03</span>
               </div>
-            </Reveal>
-          ) : null}
+            </div>
+          </Reveal>
         </div>
       </div>
     </section>

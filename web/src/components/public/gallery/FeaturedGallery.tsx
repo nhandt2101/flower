@@ -8,6 +8,10 @@ import type { GalleryImage } from "@/lib/api/types";
 import { GalleryPhoto } from "./GalleryPhoto";
 import { Reveal } from "../ui/Reveal";
 
+const FEATURED_SLOTS = [0, 1, 2] as const;
+const FEATURED_FRAME_CLASS =
+  "transition duration-500 ease-out shadow-[0_16px_45px_rgba(43,42,40,0.08)] hover:-translate-y-1 hover:shadow-[0_24px_70px_rgba(43,42,40,0.12)]";
+
 export function FeaturedGallery() {
   const t = useTranslations("featured");
   const [images, setImages] = useState<GalleryImage[]>([]);
@@ -44,13 +48,15 @@ export function FeaturedGallery() {
         </Reveal>
 
         <div className="mt-14 grid gap-6 sm:grid-cols-2 md:grid-cols-3">
-          {[0, 1, 2].map((i) => (
+          {FEATURED_SLOTS.map((i) => (
             <Reveal key={i} delay={i * 120}>
               <GalleryPhoto
                 image={images[i]}
                 label={t("imageLabel")}
-                aspect={i === 1 ? "aspect-[3/4]" : "aspect-[4/5]"}
+                aspect="aspect-[4/3]"
                 index={i}
+                className={FEATURED_FRAME_CLASS}
+                useNaturalAspect={false}
               />
             </Reveal>
           ))}
