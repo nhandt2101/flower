@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { listComments } from "@/lib/api/comments";
 import type { Cursor, PublicComment } from "@/lib/api/types";
 import { Reveal } from "../ui/Reveal";
 
 const PAGE_SIZE = 6;
+const FALLBACK_KEYS = ["a", "b", "c", "d", "e", "f"] as const;
 
 function formatDate(value: string, locale: string) {
   const date = new Date(value);
@@ -25,6 +26,21 @@ export function CommentList() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
 
+  const fallbackItems = useMemo<PublicComment[]>(
+    () =>
+      FALLBACK_KEYS.map((key) => {
+        const reply = t(`items.${key}.reply`);
+        return {
+          id: `fallback-${key}`,
+          name: t(`items.${key}.name`),
+          content: t(`items.${key}.text`),
+          createdAt: t(`items.${key}.date`),
+          reply: reply ? { content: reply, createdAt: "" } : undefined,
+        };
+      }),
+    [t],
+  );
+
   const loadPage = useCallback(async (nextCursor?: string) => {
     if (nextCursor) {
       setLoadingMore(true);
@@ -38,12 +54,17 @@ export function CommentList() {
       setItems((current) => (nextCursor ? [...current, ...data.items] : data.items));
       setCursor(data.nextCursor);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to load comments.");
+      if (!nextCursor) {
+        setItems(fallbackItems);
+        setCursor(null);
+      } else {
+        setError(err instanceof Error ? err.message : "Unable to load comments.");
+      }
     } finally {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, []);
+  }, [fallbackItems]);
 
   useEffect(() => {
     void Promise.resolve().then(() => loadPage());

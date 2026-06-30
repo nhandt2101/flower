@@ -26,6 +26,14 @@ interface RequestOptions {
 }
 
 function buildUrl(path: string, query?: Record<string, QueryValue>): string {
+  if (!API_BASE) {
+    throw new ApiError(
+      0,
+      "api_unconfigured",
+      "NEXT_PUBLIC_API_URL is not configured.",
+    );
+  }
+
   const qs = query
     ? Object.entries(query)
         .filter(([, v]) => v !== undefined && v !== "")
@@ -56,21 +64,30 @@ export async function apiFetch<T>(
     signal,
   });
 
+  if (res.status === 204) return undefined as T;
+
+  let data: unknown;
+  try {
+    const text = await res.text();
+    data = text ? JSON.parse(text) : undefined;
+  } catch {
+    throw new ApiError(
+      res.status,
+      "invalid_json",
+      "API returned a non-JSON response. Check NEXT_PUBLIC_API_URL.",
+    );
+  }
+
   if (!res.ok) {
     let code = "unknown";
     let message = res.statusText;
-    try {
-      const data = (await res.json()) as ApiErrorBody;
-      if (data?.error) {
-        code = data.error.code ?? code;
-        message = data.error.message ?? message;
-      }
-    } catch {
-      // non-JSON error body — keep status text
+    const errorBody = data as Partial<ApiErrorBody> | undefined;
+    if (errorBody?.error) {
+      code = errorBody.error.code ?? code;
+      message = errorBody.error.message ?? message;
     }
     throw new ApiError(res.status, code, message);
   }
 
-  if (res.status === 204) return undefined as T;
-  return (await res.json()) as T;
+  return data as T;
 }
