@@ -8,13 +8,19 @@ import { getAdminSettings, updateAdminSettings } from "@/lib/api/settings";
 import type { ShopSettings } from "@/lib/api/types";
 
 const defaultSettings: ShopSettings = {
-  storeName: "Tường Vi Flower",
+  storeName: "Tuong Vi Flower",
   phone: "+49 171 123 4567",
-  address: "Hauptstraße 14, 10115 Berlin",
+  address: "Hauptstrasse 14, 10115 Berlin",
   googleMapsUrl: "https://www.google.com/maps/place/Berlin",
-  openingHours: "Thứ 2 - Thứ 7: 8:00 - 19:00\nChủ nhật: 9:00 - 17:00",
+  openingHours: "Monday - Saturday: 8:00 - 19:00\nSunday: 9:00 - 17:00",
   locale: "vi",
 };
+
+const locales = [
+  { value: "de", label: "Deutsch", helper: "Use German map labels" },
+  { value: "en", label: "English", helper: "Use English map labels" },
+  { value: "vi", label: "Tieng Viet", helper: "Use Vietnamese map labels" },
+];
 
 function mapEmbedUrl(address: string, locale: string) {
   return `https://maps.google.com/maps?q=${encodeURIComponent(address)}&hl=${encodeURIComponent(locale)}&z=15&output=embed`;
@@ -46,7 +52,7 @@ export default function AdminSettingsPage() {
         if (mounted) setSettings(data);
       } catch (err) {
         if (mounted) {
-          setError(err instanceof Error ? err.message : "Không tải được thông tin cửa hàng.");
+          setError(err instanceof Error ? err.message : "Could not load shop settings.");
         }
       } finally {
         if (mounted) setLoading(false);
@@ -66,7 +72,7 @@ export default function AdminSettingsPage() {
 
   const handleSave = async () => {
     if (!token) {
-      setError("Phiên đăng nhập admin không hợp lệ.");
+      setError("Your admin session is no longer valid.");
       return;
     }
 
@@ -76,9 +82,9 @@ export default function AdminSettingsPage() {
     try {
       const saved = await updateAdminSettings(token, settings);
       setSettings(saved);
-      setMessage("Thông tin cửa hàng đã được lưu và sẽ hiển thị ngoài trang public.");
+      setMessage("Shop settings saved. Public pages will use the latest information.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Không lưu được thông tin cửa hàng.");
+      setError(err instanceof Error ? err.message : "Could not save shop settings.");
     } finally {
       setSaving(false);
     }
@@ -86,69 +92,83 @@ export default function AdminSettingsPage() {
 
   return (
     <AdminGuard>
-      <AdminShell title="Cài đặt cửa hàng">
+      <AdminShell title="Shop Settings">
         <section className="grid gap-6">
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
-            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-              <p className="text-sm uppercase tracking-[0.24em] text-slate-500">Thông tin cửa hàng</p>
-              <h2 className="mt-2 text-2xl font-semibold text-slate-900">Cập nhật nội dung liên hệ</h2>
-              {loading ? <p className="mt-4 text-sm text-slate-600">Đang tải thông tin...</p> : null}
+            <div className="rounded-3xl border border-silver-soft bg-surface p-5 shadow-sm sm:p-6">
+              <p className="text-xs uppercase tracking-[0.22em] text-accent">Contact content</p>
+              <h2 className="mt-2 font-serif text-3xl font-semibold text-foreground">
+                Update shop information
+              </h2>
+              {loading ? <p className="mt-4 text-sm text-muted">Loading settings...</p> : null}
 
-              <div className="mt-6 grid gap-6 lg:grid-cols-2">
-                <label className="space-y-2 text-sm text-slate-700">
-                  Tên cửa hàng
+              <div className="mt-6 grid gap-5 lg:grid-cols-2">
+                <label className="space-y-2 text-sm font-medium text-foreground">
+                  Shop name
                   <input
                     value={settings.storeName}
                     onChange={(event) => updateField("storeName", event.target.value)}
-                    className="w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+                    className="w-full rounded-2xl border border-silver-soft bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
                   />
                 </label>
-                <label className="space-y-2 text-sm text-slate-700">
-                  Hotline
+                <label className="space-y-2 text-sm font-medium text-foreground">
+                  Phone
                   <input
                     value={settings.phone}
                     onChange={(event) => updateField("phone", event.target.value)}
-                    className="w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+                    className="w-full rounded-2xl border border-silver-soft bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
                   />
                 </label>
-                <label className="space-y-2 text-sm text-slate-700">
-                  Địa chỉ
+                <label className="space-y-2 text-sm font-medium text-foreground">
+                  Address
                   <textarea
                     value={settings.address}
                     onChange={(event) => updateField("address", event.target.value)}
                     rows={3}
-                    className="w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+                    className="w-full rounded-2xl border border-silver-soft bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
                   />
                 </label>
-                <label className="space-y-2 text-sm text-slate-700">
+                <label className="space-y-2 text-sm font-medium text-foreground">
                   Google Maps URL
                   <input
                     value={settings.googleMapsUrl}
                     onChange={(event) => updateField("googleMapsUrl", event.target.value)}
-                    className="w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+                    className="w-full rounded-2xl border border-silver-soft bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
                   />
                 </label>
-                <label className="space-y-2 text-sm text-slate-700 lg:col-span-2">
-                  Giờ mở cửa
+                <label className="space-y-2 text-sm font-medium text-foreground lg:col-span-2">
+                  Opening hours
                   <textarea
                     value={settings.openingHours}
                     onChange={(event) => updateField("openingHours", event.target.value)}
                     rows={4}
-                    className="w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+                    className="w-full rounded-2xl border border-silver-soft bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
                   />
                 </label>
-                <label className="space-y-2 text-sm text-slate-700 lg:col-span-2">
-                  Ngôn ngữ hiển thị bản đồ mặc định
-                  <select
-                    value={settings.locale}
-                    onChange={(event) => updateField("locale", event.target.value)}
-                    className="w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
-                  >
-                    <option value="de">Deutsch</option>
-                    <option value="en">English</option>
-                    <option value="vi">Tiếng Việt</option>
-                  </select>
-                </label>
+              </div>
+
+              <div className="mt-6 rounded-3xl border border-silver-soft bg-background p-4">
+                <p className="text-sm font-semibold text-foreground">Map language</p>
+                <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                  {locales.map((item) => {
+                    const active = settings.locale === item.value;
+                    return (
+                      <button
+                        key={item.value}
+                        type="button"
+                        onClick={() => updateField("locale", item.value)}
+                        className={`rounded-2xl border px-4 py-3 text-left transition ${
+                          active
+                            ? "border-accent bg-accent/10 text-foreground"
+                            : "border-silver-soft bg-surface text-muted hover:border-accent/50"
+                        }`}
+                      >
+                        <span className="block text-sm font-semibold">{item.label}</span>
+                        <span className="mt-1 block text-xs leading-5">{item.helper}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -156,20 +176,22 @@ export default function AdminSettingsPage() {
                   type="button"
                   onClick={handleSave}
                   disabled={saving}
-                  className="inline-flex items-center justify-center rounded-3xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex items-center justify-center rounded-2xl bg-accent px-5 py-3 text-sm font-semibold text-background transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {saving ? "Đang lưu..." : "Lưu thay đổi"}
+                  {saving ? "Saving..." : "Save changes"}
                 </button>
-                <p className="text-sm text-slate-600">Các trường này sẽ cập nhật cho phần liên hệ ngoài trang public.</p>
+                <p className="text-sm text-muted">
+                  These fields update the public contact sections.
+                </p>
               </div>
-              {message ? <p className="mt-4 rounded-3xl bg-slate-100 px-4 py-3 text-sm text-slate-700">{message}</p> : null}
-              {error ? <p className="mt-4 rounded-3xl bg-rose-100 px-4 py-3 text-sm text-rose-700">{error}</p> : null}
+              {message ? <p className="mt-4 rounded-2xl bg-accent/10 px-4 py-3 text-sm text-foreground">{message}</p> : null}
+              {error ? <p className="mt-4 rounded-2xl bg-rose-100 px-4 py-3 text-sm text-rose-700">{error}</p> : null}
             </div>
 
-            <aside className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-              <p className="text-sm uppercase tracking-[0.24em] text-slate-500">Bản đồ</p>
-              <h2 className="mt-2 text-2xl font-semibold text-slate-900">Preview vị trí</h2>
-              <div className="mt-5 overflow-hidden rounded-3xl border border-slate-200 bg-slate-50">
+            <aside className="rounded-3xl border border-silver-soft bg-surface p-5 shadow-sm sm:p-6">
+              <p className="text-xs uppercase tracking-[0.22em] text-accent">Live map</p>
+              <h2 className="mt-2 font-serif text-3xl font-semibold text-foreground">Location preview</h2>
+              <div className="mt-5 overflow-hidden rounded-3xl border border-silver-soft bg-background">
                 <iframe
                   title="Google Maps preview"
                   src={previewMapUrl}
@@ -178,14 +200,14 @@ export default function AdminSettingsPage() {
                   className="aspect-[4/3] w-full border-0"
                 />
               </div>
-              <p className="mt-4 whitespace-pre-line text-sm leading-6 text-slate-600">{settings.address}</p>
+              <p className="mt-4 whitespace-pre-line text-sm leading-6 text-muted">{settings.address}</p>
               <a
                 href={settings.googleMapsUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="mt-4 inline-block rounded-3xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700"
+                className="mt-4 inline-flex rounded-2xl bg-foreground px-4 py-2 text-sm font-semibold text-background transition hover:bg-accent"
               >
-                Mở Google Maps
+                Open Google Maps
               </a>
             </aside>
           </div>

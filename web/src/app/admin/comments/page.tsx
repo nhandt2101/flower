@@ -14,10 +14,16 @@ import type { AdminComment, CommentStatus } from "@/lib/api/types";
 
 type Filter = "all" | CommentStatus;
 
+const filters: { value: Filter; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "visible", label: "Visible" },
+  { value: "hidden", label: "Hidden" },
+];
+
 function formatDate(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat("vi-VN", {
+  return new Intl.DateTimeFormat("en", {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(date);
@@ -52,7 +58,7 @@ export default function AdminCommentsPage() {
       });
       setComments(data.items);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Không tải được danh sách bình luận.");
+      setError(err instanceof Error ? err.message : "Could not load comments.");
     } finally {
       setLoading(false);
     }
@@ -75,13 +81,9 @@ export default function AdminCommentsPage() {
     };
   }, [loadComments, selectedFilter]);
 
-  const handleFilterChange = (filter: Filter) => {
-    setSelectedFilter(filter);
-  };
-
   const handleToggleVisibility = async (comment: AdminComment) => {
     if (!token) {
-      setError("Phiên đăng nhập admin không hợp lệ.");
+      setError("Your admin session is no longer valid.");
       return;
     }
 
@@ -96,9 +98,9 @@ export default function AdminCommentsPage() {
           ? current.map((item) => (item.id === updated.id ? updated : item))
           : current.filter((item) => item.id !== updated.id),
       );
-      setMessage("Trạng thái bình luận đã được cập nhật.");
+      setMessage("Comment status updated.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Không cập nhật được bình luận.");
+      setError(err instanceof Error ? err.message : "Could not update comment.");
     } finally {
       setBusyId(null);
     }
@@ -106,13 +108,13 @@ export default function AdminCommentsPage() {
 
   const handleReply = async (id: string) => {
     if (!token) {
-      setError("Phiên đăng nhập admin không hợp lệ.");
+      setError("Your admin session is no longer valid.");
       return;
     }
 
     const reply = replyMap[id]?.trim();
     if (!reply) {
-      setMessage("Vui lòng nhập nội dung trả lời.");
+      setMessage("Enter a reply before saving.");
       return;
     }
 
@@ -123,9 +125,9 @@ export default function AdminCommentsPage() {
       const updated = await replyToComment(token, id, reply);
       setComments((current) => current.map((item) => (item.id === updated.id ? updated : item)));
       setReplyMap((current) => ({ ...current, [id]: "" }));
-      setMessage("Đã lưu trả lời cho bình luận.");
+      setMessage("Reply saved.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Không lưu được trả lời.");
+      setError(err instanceof Error ? err.message : "Could not save reply.");
     } finally {
       setBusyId(null);
     }
@@ -133,7 +135,7 @@ export default function AdminCommentsPage() {
 
   const handleDelete = async (id: string) => {
     if (!token) {
-      setError("Phiên đăng nhập admin không hợp lệ.");
+      setError("Your admin session is no longer valid.");
       return;
     }
 
@@ -143,9 +145,9 @@ export default function AdminCommentsPage() {
     try {
       await deleteComment(token, id);
       setComments((current) => current.filter((item) => item.id !== id));
-      setMessage("Bình luận đã được xóa.");
+      setMessage("Comment deleted.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Không xóa được bình luận.");
+      setError(err instanceof Error ? err.message : "Could not delete comment.");
     } finally {
       setBusyId(null);
     }
@@ -153,89 +155,96 @@ export default function AdminCommentsPage() {
 
   return (
     <AdminGuard>
-      <AdminShell title="Quản lý bình luận">
+      <AdminShell title="Comments">
         <section className="grid gap-6">
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="rounded-3xl border border-silver-soft bg-surface p-5 shadow-sm sm:p-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <p className="text-sm uppercase tracking-[0.24em] text-slate-500">Bình luận khách hàng</p>
-                <h2 className="mt-2 text-2xl font-semibold text-slate-900">Xem và thao tác</h2>
+                <p className="text-xs uppercase tracking-[0.22em] text-accent">Customer comments</p>
+                <h2 className="mt-2 font-serif text-3xl font-semibold text-foreground">Review and reply</h2>
               </div>
               <div className="flex flex-wrap items-center gap-3">
-                <span className="rounded-3xl bg-slate-50 px-4 py-2 text-sm text-slate-700 shadow-sm">
-                  Tổng: {counts.total}
-                </span>
-                <select
-                  value={selectedFilter}
-                  onChange={(event) => handleFilterChange(event.target.value as Filter)}
-                  className="rounded-3xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-900 outline-none"
-                >
-                  <option value="all">Tất cả</option>
-                  <option value="visible">Hiển thị</option>
-                  <option value="hidden">Đã ẩn</option>
-                </select>
+                <div className="rounded-2xl border border-silver-soft bg-background px-4 py-2 text-sm text-muted">
+                  Total <span className="font-semibold text-foreground">{counts.total}</span>
+                </div>
+                <div className="flex rounded-2xl border border-silver-soft bg-background p-1">
+                  {filters.map((filter) => (
+                    <button
+                      key={filter.value}
+                      type="button"
+                      onClick={() => setSelectedFilter(filter.value)}
+                      className={`rounded-xl px-3 py-1.5 text-sm font-semibold transition ${
+                        selectedFilter === filter.value
+                          ? "bg-accent text-background"
+                          : "text-muted hover:text-accent"
+                      }`}
+                    >
+                      {filter.label}
+                    </button>
+                  ))}
+                </div>
                 <button
                   type="button"
                   onClick={() => token && loadComments(token, selectedFilter)}
                   disabled={loading}
-                  className="rounded-full border border-slate-200 bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-200 disabled:opacity-60"
+                  className="rounded-full border border-silver-soft bg-background px-4 py-2 text-sm font-semibold text-foreground transition hover:border-accent hover:text-accent disabled:opacity-60"
                 >
-                  {loading ? "Đang tải..." : "Làm mới"}
+                  {loading ? "Loading..." : "Refresh"}
                 </button>
               </div>
             </div>
 
-            <div className="mt-4 flex flex-wrap gap-3 text-sm text-slate-600">
-              <span>Hiển thị: {counts.visible}</span>
-              <span>Đã ẩn: {counts.hidden}</span>
+            <div className="mt-4 flex flex-wrap gap-3 text-sm text-muted">
+              <span>Visible: {counts.visible}</span>
+              <span>Hidden: {counts.hidden}</span>
             </div>
 
-            {message ? <p className="mt-4 rounded-3xl bg-slate-100 px-4 py-3 text-sm text-slate-700">{message}</p> : null}
-            {error ? <p className="mt-4 rounded-3xl bg-rose-100 px-4 py-3 text-sm text-rose-700">{error}</p> : null}
+            {message ? <p className="mt-4 rounded-2xl bg-accent/10 px-4 py-3 text-sm text-foreground">{message}</p> : null}
+            {error ? <p className="mt-4 rounded-2xl bg-rose-100 px-4 py-3 text-sm text-rose-700">{error}</p> : null}
           </div>
 
           <div className="space-y-4">
-            {loading ? <p className="rounded-3xl border border-slate-200 bg-white p-6 text-sm text-slate-600">Đang tải bình luận...</p> : null}
-            {!loading && comments.length === 0 ? <p className="rounded-3xl border border-slate-200 bg-white p-6 text-sm text-slate-600">Chưa có bình luận nào.</p> : null}
+            {loading ? <p className="rounded-3xl border border-silver-soft bg-surface p-6 text-sm text-muted">Loading comments...</p> : null}
+            {!loading && comments.length === 0 ? <p className="rounded-3xl border border-silver-soft bg-surface p-6 text-sm text-muted">No comments yet.</p> : null}
 
             {comments.map((comment) => (
-              <article key={comment.id} className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <article key={comment.id} className="rounded-3xl border border-silver-soft bg-surface p-5 shadow-sm sm:p-6">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <p className="text-sm text-slate-500">{formatDate(comment.createdAt)}</p>
-                    <p className="mt-2 text-lg font-semibold text-slate-900">{comment.name}</p>
-                    <p className="text-sm text-slate-500">{comment.email}</p>
+                  <div className="min-w-0">
+                    <p className="text-sm text-muted">{formatDate(comment.createdAt)}</p>
+                    <p className="mt-2 text-lg font-semibold text-foreground">{comment.name}</p>
+                    <p className="truncate text-sm text-muted">{comment.email}</p>
                   </div>
                   <span
-                    className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${
+                    className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${
                       comment.status === "visible"
                         ? "bg-emerald-100 text-emerald-700"
-                        : "bg-slate-100 text-slate-600"
+                        : "bg-silver-soft text-muted"
                     }`}
                   >
-                    {comment.status === "visible" ? "Hiển thị" : "Đã ẩn"}
+                    {comment.status}
                   </span>
                 </div>
 
-                <p className="mt-4 leading-7 text-slate-700">{comment.content}</p>
+                <p className="mt-4 leading-7 text-foreground/80">{comment.content}</p>
 
                 {comment.reply ? (
-                  <div className="mt-5 rounded-3xl bg-slate-50 p-4 text-slate-700">
-                    <p className="text-sm font-semibold text-slate-900">Trả lời chủ shop</p>
+                  <div className="mt-5 rounded-3xl border border-silver-soft bg-background p-4 text-foreground/80">
+                    <p className="text-sm font-semibold text-foreground">Shop reply</p>
                     <p className="mt-2 text-sm leading-6">{comment.reply.content}</p>
-                    <p className="mt-2 text-xs text-slate-500">{formatDate(comment.reply.createdAt)}</p>
+                    <p className="mt-2 text-xs text-muted">{formatDate(comment.reply.createdAt)}</p>
                   </div>
                 ) : null}
 
-                <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex flex-wrap gap-3">
+                <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(260px,420px)]">
+                  <div className="flex flex-wrap items-start gap-3">
                     <button
                       type="button"
                       onClick={() => handleToggleVisibility(comment)}
                       disabled={busyId === comment.id}
-                      className="rounded-full border border-slate-200 bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="rounded-full border border-silver-soft bg-background px-4 py-2 text-sm font-semibold text-foreground transition hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      {comment.status === "visible" ? "Ẩn" : "Hiển thị"}
+                      {comment.status === "visible" ? "Hide" : "Show"}
                     </button>
                     <button
                       type="button"
@@ -243,29 +252,29 @@ export default function AdminCommentsPage() {
                       disabled={busyId === comment.id}
                       className="rounded-full bg-rose-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-600 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      Xóa
+                      Delete
                     </button>
                   </div>
-                  <div className="min-w-[220px]">
-                    <label className="block text-sm font-medium text-slate-700">
-                      Trả lời nhanh
+                  <div>
+                    <label className="block text-sm font-medium text-foreground">
+                      Quick reply
                       <textarea
                         value={replyMap[comment.id] ?? ""}
                         onChange={(event) =>
                           setReplyMap((current) => ({ ...current, [comment.id]: event.target.value }))
                         }
-                        placeholder="Nhập trả lời..."
+                        placeholder="Write a reply..."
                         rows={3}
-                        className="mt-2 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+                        className="mt-2 w-full rounded-2xl border border-silver-soft bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
                       />
                     </label>
                     <button
                       type="button"
                       onClick={() => handleReply(comment.id)}
                       disabled={busyId === comment.id}
-                      className="mt-3 inline-flex items-center rounded-3xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="mt-3 inline-flex items-center rounded-2xl bg-accent px-4 py-3 text-sm font-semibold text-background transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      {busyId === comment.id ? "Đang lưu..." : "Lưu trả lời"}
+                      {busyId === comment.id ? "Saving..." : "Save reply"}
                     </button>
                   </div>
                 </div>

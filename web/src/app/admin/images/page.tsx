@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import AdminGuard from "@/components/admin/AdminGuard";
 import AdminShell from "@/components/admin/AdminShell";
 import { getAdminSession } from "@/lib/adminAuth";
@@ -109,6 +109,7 @@ export default function AdminImagesPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [reprocessingId, setReprocessingId] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const skippedUploadIdsRef = useRef<Set<string>>(new Set());
 
   const processingCount = useMemo(
     () => images.filter((item) => imageStatus(item) === "processing").length,
@@ -160,10 +161,17 @@ export default function AdminImagesPage() {
         file,
         status: "queued" as const,
       }));
+    skippedUploadIdsRef.current = new Set();
     setUploadItems(nextItems);
     setMessage("");
     setError("");
     event.target.value = "";
+  };
+
+  const handleRemoveUploadItem = (id: string) => {
+    skippedUploadIdsRef.current.add(id);
+    setUploadItems((current) => current.filter((item) => item.id !== id));
+    setMessage("");
   };
 
   const handleUpload = async () => {
@@ -179,6 +187,7 @@ export default function AdminImagesPage() {
     setUploading(true);
     setError("");
     setMessage("");
+    skippedUploadIdsRef.current = new Set();
 
     const selectedItems = uploadItems;
     let successCount = 0;
@@ -192,6 +201,7 @@ export default function AdminImagesPage() {
     };
 
     const uploadOne = async (item: UploadItem) => {
+      if (skippedUploadIdsRef.current.has(item.id)) return;
       const { file } = item;
       updateUploadItem(item.id, { status: "uploading", note: "Uploading" });
       try {
@@ -225,6 +235,7 @@ export default function AdminImagesPage() {
         while (nextIndex < selectedItems.length) {
           const item = selectedItems[nextIndex];
           nextIndex += 1;
+          if (skippedUploadIdsRef.current.has(item.id)) continue;
           await uploadOne(item);
         }
       },
@@ -359,12 +370,12 @@ export default function AdminImagesPage() {
     <AdminGuard>
       <AdminShell title="Images">
         <section className="grid gap-4 lg:gap-6">
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+          <div className="rounded-3xl border border-silver-soft bg-surface p-5 shadow-sm sm:p-6">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
               <div className="max-w-2xl">
-                <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Image library</p>
-                <h2 className="mt-2 text-2xl font-semibold text-slate-950">Upload new images</h2>
-                <p className="mt-2 text-sm leading-6 text-slate-600">
+                <p className="text-xs uppercase tracking-[0.22em] text-accent">Image library</p>
+                <h2 className="mt-2 font-serif text-3xl font-semibold text-foreground">Upload new images</h2>
+                <p className="mt-2 text-sm leading-6 text-muted">
                   Choose JPG, PNG, or WebP images. They will be optimized automatically before appearing on the site.
                 </p>
               </div>
@@ -381,8 +392,8 @@ export default function AdminImagesPage() {
             </div>
 
             <div className="mt-6 grid gap-4 xl:grid-cols-[minmax(220px,0.9fr)_minmax(260px,1fr)_minmax(240px,0.9fr)]">
-              <label className="flex min-h-[150px] cursor-pointer flex-col items-center justify-center rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-5 text-center text-slate-500 transition hover:border-slate-400 hover:bg-slate-100">
-                <span className="text-lg font-semibold text-slate-800">Choose images</span>
+              <label className="flex min-h-[150px] cursor-pointer flex-col items-center justify-center rounded-3xl border border-dashed border-silver bg-background p-5 text-center text-muted transition hover:border-accent hover:bg-accent/5">
+                <span className="font-serif text-2xl font-semibold text-foreground">Choose images</span>
                 <span className="mt-2 text-sm">Drop files here or click to browse</span>
                 <input
                   type="file"
@@ -393,13 +404,13 @@ export default function AdminImagesPage() {
                 />
               </label>
 
-              <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
-                <label className="block text-sm font-medium text-slate-700">
+              <div className="rounded-3xl border border-silver-soft bg-background p-5">
+                <label className="block text-sm font-medium text-foreground">
                   Category
                   <select
                     value={category}
                     onChange={(event) => setCategory(event.target.value as ImageCategory)}
-                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none"
+                    className="mt-2 w-full rounded-2xl border border-silver-soft bg-surface px-4 py-3 text-sm text-foreground outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
                   >
                     {categories.map((item) => (
                       <option key={item.value} value={item.value}>
@@ -408,14 +419,14 @@ export default function AdminImagesPage() {
                     ))}
                   </select>
                 </label>
-                <label className="mt-4 block text-sm font-medium text-slate-700">
+                <label className="mt-4 block text-sm font-medium text-foreground">
                   Site placement
                   <select
                     value={landingSlot}
                     onChange={(event) =>
                       setLandingSlot(event.target.value as "" | LandingImageSlot)
                     }
-                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none"
+                    className="mt-2 w-full rounded-2xl border border-silver-soft bg-surface px-4 py-3 text-sm text-foreground outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
                   >
                     {landingSlots.map((item) => (
                       <option key={item.value || "gallery"} value={item.value}>
@@ -424,20 +435,20 @@ export default function AdminImagesPage() {
                     ))}
                   </select>
                 </label>
-                <label className="mt-4 block text-sm font-medium text-slate-700">
+                <label className="mt-4 block text-sm font-medium text-foreground">
                   Alt text
                   <input
                     value={alt}
                     onChange={(event) => setAlt(event.target.value)}
                     placeholder="Example: White wedding bouquet"
-                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none"
+                    className="mt-2 w-full rounded-2xl border border-silver-soft bg-surface px-4 py-3 text-sm text-foreground outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
                   />
                 </label>
               </div>
 
-              <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
-                <p className="font-medium text-slate-800">Selected files</p>
-                <p className="mt-2 text-sm text-slate-600">
+              <div className="rounded-3xl border border-silver-soft bg-background p-5">
+                <p className="font-medium text-foreground">Selected files</p>
+                <p className="mt-2 text-sm text-muted">
                   {uploadItems.length} file{uploadItems.length === 1 ? "" : "s"} selected
                 </p>
                 {uploadItems.length === MAX_BULK_FILES ? (
@@ -445,20 +456,45 @@ export default function AdminImagesPage() {
                     Only the first {MAX_BULK_FILES} files were added.
                   </p>
                 ) : null}
-                <ul className="mt-4 max-h-44 space-y-2 overflow-auto text-sm text-slate-600">
+                <ul className="mt-4 max-h-44 space-y-2 overflow-auto text-sm text-muted">
                   {uploadItems.map((item) => (
-                    <li key={item.id} className="rounded-2xl border border-slate-200 bg-white p-3">
+                    <li key={item.id} className="rounded-2xl border border-silver-soft bg-surface p-3">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="break-all font-medium text-slate-800">{item.file.name}</p>
-                          <p className="mt-1 text-xs text-slate-500">{formatBytes(item.file.size)}</p>
+                          <p className="break-all font-medium text-foreground">{item.file.name}</p>
+                          <p className="mt-1 text-xs text-muted">{formatBytes(item.file.size)}</p>
                           {item.note ? (
-                            <p className="mt-1 break-words text-xs text-slate-500">{item.note}</p>
+                            <p className="mt-1 break-words text-xs text-muted">{item.note}</p>
                           ) : null}
                         </div>
-                        <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] ring-1 ${uploadStatusStyles[item.status]}`}>
-                          {item.status}
-                        </span>
+                        <div className="flex shrink-0 flex-col items-end gap-2">
+                          <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] ring-1 ${uploadStatusStyles[item.status]}`}>
+                            {item.status}
+                          </span>
+                          {item.status === "uploading" || item.status === "done" ? null : (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveUploadItem(item.id)}
+                              aria-label={`Remove ${item.file.name}`}
+                              title="Remove"
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-silver-soft text-muted transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600"
+                            >
+                              <svg
+                                aria-hidden="true"
+                                viewBox="0 0 20 20"
+                                className="h-4 w-4"
+                                fill="none"
+                              >
+                                <path
+                                  d="M5 5L15 15M15 5L5 15"
+                                  stroke="currentColor"
+                                  strokeLinecap="round"
+                                  strokeWidth="2"
+                                />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </li>
                   ))}
@@ -467,35 +503,35 @@ export default function AdminImagesPage() {
                   type="button"
                   onClick={handleUpload}
                   disabled={uploading || uploadItems.length === 0}
-                  className="mt-5 inline-flex w-full items-center justify-center rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="mt-5 inline-flex w-full items-center justify-center rounded-2xl bg-accent px-4 py-3 text-sm font-semibold text-background transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {uploading ? "Uploading batch..." : "Upload selected images"}
                 </button>
               </div>
             </div>
 
-            {message ? <p className="mt-4 rounded-2xl bg-slate-100 px-4 py-3 text-sm text-slate-700">{message}</p> : null}
+            {message ? <p className="mt-4 rounded-2xl bg-accent/10 px-4 py-3 text-sm text-foreground">{message}</p> : null}
             {error ? <p className="mt-4 rounded-2xl bg-rose-100 px-4 py-3 text-sm text-rose-700">{error}</p> : null}
           </div>
 
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+          <div className="rounded-3xl border border-silver-soft bg-surface p-5 shadow-sm sm:p-6">
             <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="text-xs uppercase tracking-[0.22em] text-slate-500">Library</p>
-                <h2 className="mt-2 text-2xl font-semibold text-slate-950">Review and manage</h2>
+                <p className="text-xs uppercase tracking-[0.22em] text-accent">Library</p>
+                <h2 className="mt-2 font-serif text-3xl font-semibold text-foreground">Review and manage</h2>
               </div>
               <button
                 type="button"
                 onClick={() => token && loadImages(token)}
                 disabled={loading}
-                className="rounded-full border border-slate-200 bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-200 disabled:opacity-60"
+                className="rounded-full border border-silver-soft bg-background px-4 py-2 text-sm font-semibold text-foreground transition hover:border-accent hover:text-accent disabled:opacity-60"
               >
                 {loading ? "Loading..." : "Refresh"}
               </button>
             </div>
 
-            {loading ? <p className="text-sm text-slate-600">Loading images...</p> : null}
-            {!loading && images.length === 0 ? <p className="text-sm text-slate-600">No images in the library yet.</p> : null}
+            {loading ? <p className="text-sm text-muted">Loading images...</p> : null}
+            {!loading && images.length === 0 ? <p className="text-sm text-muted">No images in the library yet.</p> : null}
 
             <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
               {images.map((image) => {
@@ -503,25 +539,25 @@ export default function AdminImagesPage() {
                 const isProcessing = status === "processing";
                 const draft = draftFor(image);
                 return (
-                  <article key={image.id} className="min-w-0 overflow-hidden rounded-3xl border border-slate-200 bg-slate-50 shadow-sm">
+                  <article key={image.id} className="min-w-0 overflow-hidden rounded-3xl border border-silver-soft bg-background shadow-sm">
                     {status === "active" ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={image.thumbUrl} alt={image.alt || image.id} className="h-48 w-full object-cover sm:h-56" />
                     ) : (
-                      <div className="flex h-48 items-center justify-center bg-slate-100 px-4 text-center text-sm font-medium text-slate-500 sm:h-56">
+                      <div className="flex h-48 items-center justify-center bg-silver-soft/40 px-4 text-center text-sm font-medium text-muted sm:h-56">
                         {status === "failed" ? "Processing failed" : "Processing image..."}
                       </div>
                     )}
                     <div className="p-4">
                       <div className="mb-3 flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-slate-950">{image.alt || image.id}</p>
-                          <p className="text-xs text-slate-500">
+                          <p className="truncate text-sm font-semibold text-foreground">{image.alt || image.id}</p>
+                          <p className="text-xs text-muted">
                             {formatDate(image.createdAt)} - {formatBytes(image.sizeBytes)}
                           </p>
-                          <p className="mt-1 text-xs text-slate-500">{image.category}</p>
+                          <p className="mt-1 text-xs text-muted">{image.category}</p>
                           {image.landingSlot ? (
-                            <p className="mt-1 text-xs font-semibold text-slate-700">
+                            <p className="mt-1 text-xs font-semibold text-accent">
                               {landingSlots.find((item) => item.value === image.landingSlot)?.label ?? image.landingSlot}
                             </p>
                           ) : null}
@@ -531,18 +567,18 @@ export default function AdminImagesPage() {
                         </span>
                       </div>
 
-                      <div className="mb-4 grid gap-3 rounded-2xl border border-slate-200 bg-white p-3">
-                        <label className="block text-xs font-semibold text-slate-600">
+                      <div className="mb-4 grid gap-3 rounded-2xl border border-silver-soft bg-surface p-3">
+                        <label className="block text-xs font-semibold text-muted">
                           Alt text
                           <input
                             value={draft.alt}
                             onChange={(event) =>
                               updateDraft(image.id, { alt: event.target.value })
                             }
-                            className="mt-1 w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none"
+                            className="mt-1 w-full rounded-2xl border border-silver-soft bg-background px-3 py-2 text-sm text-foreground outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
                           />
                         </label>
-                        <label className="block text-xs font-semibold text-slate-600">
+                        <label className="block text-xs font-semibold text-muted">
                           Category
                           <select
                             value={draft.category}
@@ -551,7 +587,7 @@ export default function AdminImagesPage() {
                                 category: event.target.value as ImageCategory,
                               })
                             }
-                            className="mt-1 w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none"
+                            className="mt-1 w-full rounded-2xl border border-silver-soft bg-background px-3 py-2 text-sm text-foreground outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
                           >
                             {categories.map((item) => (
                               <option key={item.value} value={item.value}>
@@ -560,7 +596,7 @@ export default function AdminImagesPage() {
                             ))}
                           </select>
                         </label>
-                        <label className="block text-xs font-semibold text-slate-600">
+                        <label className="block text-xs font-semibold text-muted">
                           Site placement
                           <select
                             value={draft.landingSlot}
@@ -569,7 +605,7 @@ export default function AdminImagesPage() {
                                 landingSlot: event.target.value as "" | LandingImageSlot,
                               })
                             }
-                            className="mt-1 w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-900 outline-none"
+                            className="mt-1 w-full rounded-2xl border border-silver-soft bg-background px-3 py-2 text-sm text-foreground outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
                           >
                             {landingSlots.map((item) => (
                               <option key={item.value || "gallery"} value={item.value}>
@@ -585,7 +621,7 @@ export default function AdminImagesPage() {
                           type="button"
                           onClick={() => handleSaveMetadata(image)}
                           disabled={savingId === image.id}
-                          className="inline-flex items-center rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+                          className="inline-flex items-center rounded-full bg-accent px-4 py-2 text-sm font-semibold text-background transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           {savingId === image.id ? "Saving..." : "Save details"}
                         </button>

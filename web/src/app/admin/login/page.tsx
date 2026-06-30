@@ -38,7 +38,7 @@ export default function AdminLoginPage() {
 
     if (needsNewPassword) {
       if (!newPassword) {
-        setError("Vui lòng nhập mật khẩu mới.");
+        setError("Enter a new password.");
         return;
       }
 
@@ -50,9 +50,9 @@ export default function AdminLoginPage() {
           return;
         }
 
-        setError(`Tài khoản cần hoàn tất bước xác thực: ${result.nextStep.signInStep}`);
+        setError(`Your account needs another sign-in step: ${result.nextStep.signInStep}`);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Không đổi được mật khẩu mới.");
+        setError(err instanceof Error ? err.message : "Could not save the new password.");
       } finally {
         setIsLoading(false);
       }
@@ -60,7 +60,7 @@ export default function AdminLoginPage() {
     }
 
     if (!email || !password) {
-      setError("Vui lòng nhập email và mật khẩu.");
+      setError("Enter email and password.");
       return;
     }
 
@@ -78,9 +78,9 @@ export default function AdminLoginPage() {
         return;
       }
 
-      setError(`Tài khoản cần hoàn tất bước xác thực: ${result.nextStep.signInStep}`);
+      setError(`Your account needs another sign-in step: ${result.nextStep.signInStep}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Đăng nhập không thành công.");
+      setError(err instanceof Error ? err.message : "Sign in failed.");
     } finally {
       setIsLoading(false);
     }
@@ -88,66 +88,78 @@ export default function AdminLoginPage() {
 
   return (
     <main className="min-h-screen bg-background px-4 py-12 text-foreground">
-      <div className="mx-auto w-full max-w-md overflow-hidden rounded-[2rem] border border-silver-soft bg-surface shadow-sm">
-        <div className="border-b border-silver-soft px-8 py-8 text-center">
+      <div className="mx-auto grid min-h-[calc(100vh-6rem)] w-full max-w-5xl items-center gap-8 lg:grid-cols-[minmax(0,1fr)_420px]">
+        <section className="hidden lg:block">
           <p className="text-xs uppercase tracking-[0.32em] text-accent">Flower Shop Admin</p>
-          <h1 className="mt-3 text-3xl font-serif font-semibold text-foreground">Đăng nhập quản trị</h1>
-          <p className="mt-3 text-sm leading-6 text-muted">
-            Quản lý ảnh, bình luận và thông tin cửa hàng.
+          <h1 className="mt-4 max-w-xl font-serif text-6xl font-semibold leading-none text-foreground">
+            Manage every locale from one calm place.
+          </h1>
+          <p className="mt-6 max-w-lg text-sm leading-7 text-muted">
+            Keep images, comments, contact details, and map language aligned with the public storefront.
           </p>
-        </div>
+        </section>
 
-        <form onSubmit={handleSubmit} className="space-y-5 px-8 py-8">
-          <label className="block text-sm font-medium text-foreground">
-            Email
-            <input
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              disabled={needsNewPassword}
-              placeholder="admin@example.com"
-              className="mt-2 w-full rounded-3xl border border-silver-soft bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20 disabled:opacity-60"
-            />
-          </label>
+        <section className="overflow-hidden rounded-3xl border border-silver-soft bg-surface shadow-sm">
+          <div className="border-b border-silver-soft px-7 py-7">
+            <p className="text-xs uppercase tracking-[0.28em] text-accent">Blutenhaus</p>
+            <h2 className="mt-3 font-serif text-4xl font-semibold text-foreground">Admin sign in</h2>
+            <p className="mt-3 text-sm leading-6 text-muted">
+              Use your admin account to update public content.
+            </p>
+          </div>
 
-          <label className="block text-sm font-medium text-foreground">
-            Mật khẩu
-            <input
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              disabled={needsNewPassword}
-              placeholder="••••••••"
-              className="mt-2 w-full rounded-3xl border border-silver-soft bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20 disabled:opacity-60"
-            />
-          </label>
-
-          {needsNewPassword ? (
+          <form onSubmit={handleSubmit} className="space-y-5 px-7 py-7">
             <label className="block text-sm font-medium text-foreground">
-              Mật khẩu mới
+              Email
+              <input
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                disabled={needsNewPassword}
+                placeholder="admin@example.com"
+                className="mt-2 w-full rounded-2xl border border-silver-soft bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20 disabled:opacity-60"
+              />
+            </label>
+
+            <label className="block text-sm font-medium text-foreground">
+              Password
               <input
                 type="password"
-                value={newPassword}
-                onChange={(event) => setNewPassword(event.target.value)}
-                placeholder="Nhập mật khẩu mới"
-                className="mt-2 w-full rounded-3xl border border-silver-soft bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                disabled={needsNewPassword}
+                placeholder="********"
+                className="mt-2 w-full rounded-2xl border border-silver-soft bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20 disabled:opacity-60"
               />
-              <span className="mt-2 block text-xs leading-5 text-muted">
-                Cognito yêu cầu đổi mật khẩu trong lần đăng nhập đầu tiên.
-              </span>
             </label>
-          ) : null}
 
-          {error ? <p className="rounded-3xl bg-rose-100 px-4 py-3 text-sm text-rose-700">{error}</p> : null}
+            {needsNewPassword ? (
+              <label className="block text-sm font-medium text-foreground">
+                New password
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(event) => setNewPassword(event.target.value)}
+                  placeholder="Enter a new password"
+                  className="mt-2 w-full rounded-2xl border border-silver-soft bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
+                />
+                <span className="mt-2 block text-xs leading-5 text-muted">
+                  Your account requires a new password before entering the dashboard.
+                </span>
+              </label>
+            ) : null}
 
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="inline-flex w-full items-center justify-center rounded-3xl bg-accent px-4 py-3 text-sm font-semibold text-background shadow-sm transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isLoading ? "Đang xử lý..." : needsNewPassword ? "Lưu mật khẩu mới" : "Đăng nhập"}
-          </button>
-        </form>
+            {error ? <p className="rounded-2xl bg-rose-100 px-4 py-3 text-sm text-rose-700">{error}</p> : null}
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="inline-flex w-full items-center justify-center rounded-2xl bg-accent px-4 py-3 text-sm font-semibold text-background shadow-sm transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isLoading ? "Working..." : needsNewPassword ? "Save new password" : "Sign in"}
+            </button>
+          </form>
+        </section>
       </div>
     </main>
   );
