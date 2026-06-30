@@ -7,7 +7,13 @@ import {
   QueryCommand,
   UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
-import { DeleteObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import {
+  DeleteObjectCommand,
+  GetObjectCommand,
+  HeadObjectCommand,
+  PutObjectCommand,
+  S3Client,
+} from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { randomUUID } from "crypto";
 import jwt from "jsonwebtoken";
@@ -28,6 +34,14 @@ const s3 = new S3Client({ region: REGION });
 type CommentStatus = "visible" | "hidden";
 type ImageCategory = "wedding" | "birthday" | "funeral" | "other";
 type JsonObject = Record<string, unknown>;
+type ShopSettings = {
+  storeName: string;
+  phone: string;
+  address: string;
+  googleMapsUrl: string;
+  openingHours: string;
+  locale: string;
+};
 
 const validCommentStatuses = new Set<CommentStatus>(["visible", "hidden"]);
 const validImageCategories = new Set<ImageCategory>([
@@ -37,6 +51,14 @@ const validImageCategories = new Set<ImageCategory>([
   "other",
 ]);
 const allowedImageTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+const defaultShopSettings: ShopSettings = {
+  storeName: "Tường Vi Flower",
+  phone: "+49 171 123 4567",
+  address: "Hauptstraße 14, 10115 Berlin",
+  googleMapsUrl: "https://www.google.com/maps/place/Berlin",
+  openingHours: "Thứ 2 - Thứ 7: 8:00 - 19:00\nChủ nhật: 9:00 - 17:00",
+  locale: "vi",
+};
 
 const client = jwksClient({
   jwksUri: `https://cognito-idp.${REGION}.amazonaws.com/${USER_POOL_ID}/.well-known/jwks.json`,
@@ -89,9 +111,6 @@ function ok(statusCode: number, body: unknown = {}) {
     statusCode,
     headers: {
       "content-type": "application/json",
-      "access-control-allow-origin": "*",
-      "access-control-allow-headers": "content-type,authorization",
-      "access-control-allow-methods": "GET,POST,PATCH,DELETE,OPTIONS",
     },
     body: JSON.stringify(body),
   };
@@ -120,6 +139,45 @@ function bodyString(body: JsonObject, key: string) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function shopSettings(item?: Record<string, any>): ShopSettings {
+  return {
+    storeName:
+      typeof item?.storeName === "string" && item.storeName
+        ? item.storeName
+        : defaultShopSettings.storeName,
+    phone:
+      typeof item?.phone === "string" && item.phone
+        ? item.phone
+        : defaultShopSettings.phone,
+    address:
+      typeof item?.address === "string" && item.address
+        ? item.address
+        : defaultShopSettings.address,
+    googleMapsUrl:
+      typeof item?.googleMapsUrl === "string" && item.googleMapsUrl
+        ? item.googleMapsUrl
+        : defaultShopSettings.googleMapsUrl,
+    openingHours:
+      typeof item?.openingHours === "string" && item.openingHours
+        ? item.openingHours
+        : defaultShopSettings.openingHours,
+    locale:
+      typeof item?.locale === "string" && item.locale
+        ? item.locale
+        : defaultShopSettings.locale,
+  };
+}
+
+async function getShopSettings() {
+  const res = await ddb.send(
+    new GetCommand({
+      TableName: TABLE_NAME,
+      Key: { PK: "SETTINGS", SK: "SHOP" },
+    }),
+  );
+  return shopSettings(res.Item);
+}
+
 function publicComment(item: Record<string, any>) {
   return {
     id: item.id,
@@ -146,13 +204,18 @@ function adminComment(item: Record<string, any>) {
 function galleryImage(item: Record<string, any>) {
   return {
     id: item.id,
-    url: item.url,
-    thumbUrl: item.thumbUrl,
+    url: normalizeCdnUrl(item.url),
+    thumbUrl: normalizeCdnUrl(item.thumbUrl),
     category: item.category,
     width: item.width,
     height: item.height,
     alt: item.alt,
   };
+}
+
+function normalizeCdnUrl(value: unknown) {
+  if (typeof value !== "string") return value;
+  return value.replace(/(https?:\/\/[^/]+)\/public\//, "$1/");
 }
 
 function adminImage(item: Record<string, any>) {
@@ -161,6 +224,7 @@ function adminImage(item: Record<string, any>) {
     objectKey: item.objectKey,
     createdAt: item.createdAt,
     sizeBytes: item.sizeBytes,
+    status: item.status,
   };
 }
 
@@ -245,7 +309,11 @@ export const handler = async (event: any) => {
       const authHeader = event.headers?.authorization || "";
       const token = authHeader.replace(/^Bearer\s+/i, "");
       if (!token) return error(401, "missing_token", "Missing bearer token");
-      await verifyToken(token);
+      try {
+        await verifyToken(token);
+      } catch {
+        return error(401, "invalid_token", "Invalid or expired bearer token");
+      }
     }
 
     if (method === "GET" && path === "/comments") {
@@ -327,6 +395,10 @@ export const handler = async (event: any) => {
       });
     }
 
+    if (method === "GET" && path === "/settings") {
+      return ok(200, await getShopSettings());
+    }
+
     if (method === "GET" && path === "/admin/comments") {
       const limit = Number(query.limit || 20);
       const cursor = parseCursor(query.cursor);
@@ -354,6 +426,37 @@ export const handler = async (event: any) => {
         items: (res.Items || []).map(adminComment),
         nextCursor: encodeCursor(res.LastEvaluatedKey),
       });
+    }
+
+    if (method === "GET" && path === "/admin/settings") {
+      return ok(200, await getShopSettings());
+    }
+
+    if (method === "PATCH" && path === "/admin/settings") {
+      const nextSettings: ShopSettings = {
+        storeName: bodyString(body, "storeName") || defaultShopSettings.storeName,
+        phone: bodyString(body, "phone") || defaultShopSettings.phone,
+        address: bodyString(body, "address") || defaultShopSettings.address,
+        googleMapsUrl:
+          bodyString(body, "googleMapsUrl") || defaultShopSettings.googleMapsUrl,
+        openingHours:
+          bodyString(body, "openingHours") || defaultShopSettings.openingHours,
+        locale: bodyString(body, "locale") || defaultShopSettings.locale,
+      };
+
+      await ddb.send(
+        new PutCommand({
+          TableName: TABLE_NAME,
+          Item: {
+            PK: "SETTINGS",
+            SK: "SHOP",
+            ...nextSettings,
+            updatedAt: new Date().toISOString(),
+          },
+        }),
+      );
+
+      return ok(200, nextSettings);
     }
 
     if (method === "POST" && /^\/admin\/comments\/[^/]+\/reply$/.test(path)) {
@@ -488,10 +591,6 @@ export const handler = async (event: any) => {
         Bucket: BUCKET,
         Key: objectKey,
         ContentType: contentType,
-        Metadata: {
-          "image-id": imageId,
-          "created-at": createdAt,
-        },
       });
       const uploadUrl = await getSignedUrl(s3, command, { expiresIn: 900 });
 
@@ -539,6 +638,36 @@ export const handler = async (event: any) => {
       );
 
       return ok(200, adminImage(res.Attributes || {}));
+    }
+
+    if (method === "POST" && /^\/admin\/images\/[^/]+\/reprocess$/.test(path)) {
+      const id = path.split("/")[3];
+      const item = await findItemById("IMAGE", id);
+      if (!item) return error(404, "not_found", "Image not found");
+      if (typeof item.objectKey !== "string" || !item.objectKey.startsWith(UPLOADS_PREFIX)) {
+        return error(400, "invalid_object_key", "Invalid original image key");
+      }
+
+      const head = await s3.send(
+        new HeadObjectCommand({ Bucket: BUCKET, Key: item.objectKey }),
+      );
+      const original = await s3.send(
+        new GetObjectCommand({ Bucket: BUCKET, Key: item.objectKey }),
+      );
+      const bytes = Buffer.from(await original.Body!.transformToByteArray());
+
+      await s3.send(
+        new PutObjectCommand({
+          Bucket: BUCKET,
+          Key: item.objectKey,
+          Body: bytes,
+          ContentType:
+            head.ContentType ??
+            (typeof item.contentType === "string" ? item.contentType : "application/octet-stream"),
+        }),
+      );
+
+      return ok(200, adminImage(item));
     }
 
     if (method === "DELETE" && /^\/admin\/images\/[^/]+$/.test(path)) {

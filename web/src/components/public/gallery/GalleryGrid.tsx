@@ -3,26 +3,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { listImages } from "@/lib/api/images";
-import type { GalleryImage, ImageCategory } from "@/lib/api/types";
-import { ImageFrame } from "../ui/ImageFrame";
+import type { Cursor, GalleryImage, ImageCategory } from "@/lib/api/types";
 import { Reveal } from "../ui/Reveal";
-import { getGalleryImageLayout, type GalleryImageFit } from "./imageLayout";
+import { GalleryPhoto } from "./GalleryPhoto";
 
-// Filter tabs map to the shop's occasion categories. "other" images (shop /
-// ambiance) appear only under "all". Keep this in sync with ImageCategory in
-// web/src/lib/api/types.ts and the admin upload category selector.
 const CATEGORIES = ["wedding", "birthday", "funeral"] as const;
 type Filter = "all" | (typeof CATEGORIES)[number];
-
-// Grid uses thumbUrl, lightbox uses url.
-type Tile = {
-  id: string;
-  aspectRatio: number;
-  fit: GalleryImageFit;
-  url?: string;
-  thumbUrl?: string;
-  alt?: string;
-};
+const PAGE_SIZE = 24;
 
 async function downloadImage(url: string, filename: string) {
   try {
@@ -49,71 +36,42 @@ export function GalleryGrid() {
   const t = useTranslations("galleryPage");
   const to = useTranslations("occasions");
   const [filter, setFilter] = useState<Filter>("all");
-  const [images, setImages] = useState<GalleryImage[]>([]);
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [items, setItems] = useState<GalleryImage[]>([]);
+  const [cursor, setCursor] = useState<Cursor>(null);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [loaded, setLoaded] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const [error, setError] = useState("");
   const [open, setOpen] = useState<number | null>(null);
-  const [visible, setVisible] = useState(false); // drives enter/exit fade+scale
-  const [dir, setDir] = useState<1 | -1>(1); // slide direction on switch
+  const [visible, setVisible] = useState(false);
+  const [dir, setDir] = useState<1 | -1>(1);
 
-  const items = useMemo<Tile[]>(() => {
-    return images.map((image, i) => {
-      const layout = getGalleryImageLayout(image, i);
-      return {
-        id: image.id,
-        aspectRatio: layout.aspectRatio,
-        fit: layout.fit,
-        url: image.url,
-        thumbUrl: image.thumbUrl,
-        alt: image.alt,
-      };
-    });
-  }, [images]);
+  const loadPage = useCallback(async (selected: Filter, nextCursor?: string) => {
+    if (nextCursor) {
+      setLoadingMore(true);
+    } else {
+      setLoading(true);
+    }
+    setError("");
 
-  const fetchImages = useCallback(
-    async (cursor?: string) => {
-      if (cursor) {
-        setLoadingMore(true);
-      } else {
-        setLoading(true);
-        setLoaded(false);
-        setFailed(false);
-      }
-
-      try {
-        const page = await listImages({
-          category: filter === "all" ? undefined : (filter as ImageCategory),
-          cursor,
-          limit: 24,
-        });
-        setImages((current) => (cursor ? [...current, ...page.items] : page.items));
-        setNextCursor(page.nextCursor);
-      } catch {
-        setFailed(true);
-        if (!cursor) {
-          setImages([]);
-          setNextCursor(null);
-        }
-      } finally {
-        setLoading(false);
-        setLoadingMore(false);
-        if (!cursor) {
-          setLoaded(true);
-        }
-      }
-    },
-    [filter],
-  );
+    try {
+      const data = await listImages({
+        cursor: nextCursor,
+        limit: PAGE_SIZE,
+        category: selected === "all" ? undefined : (selected as ImageCategory),
+      });
+      setItems((current) => (nextCursor ? [...current, ...data.items] : data.items));
+      setCursor(data.nextCursor);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to load gallery images.");
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const id = window.setTimeout(() => {
-      void fetchImages();
-    }, 0);
-    return () => window.clearTimeout(id);
-  }, [fetchImages]);
+    void Promise.resolve().then(() => loadPage(filter));
+  }, [filter, loadPage]);
 
   const openAt = useCallback((i: number) => {
     setDir(1);
@@ -123,7 +81,7 @@ export function GalleryGrid() {
 
   const close = useCallback(() => {
     setVisible(false);
-    window.setTimeout(() => setOpen(null), 220); // matches CSS .lb-overlay
+    window.setTimeout(() => setOpen(null), 220);
   }, []);
 
   const show = useCallback(
@@ -149,21 +107,24 @@ export function GalleryGrid() {
     };
   }, [open, close, show]);
 
-  const selectFilter = (f: Filter) => {
-    setOpen(null); // indexes change with the filter
+  const selectFilter = (nextFilter: Filter) => {
+    setOpen(null);
     setVisible(false);
-    setImages([]);
-    setNextCursor(null);
-    setLoaded(false);
-    setLoading(true);
-    setFailed(false);
-    setFilter(f);
+    setCursor(null);
+    setItems([]);
+    setFilter(nextFilter);
   };
 
-  const tabs: { key: Filter; label: string }[] = [
-    { key: "all", label: t("all") },
-    ...CATEGORIES.map((c) => ({ key: c, label: to(`items.${c}.label`) })),
-  ];
+  const tabs: { key: Filter; label: string }[] = useMemo(
+    () => [
+      { key: "all", label: t("all") },
+      ...CATEGORIES.map((category) => ({
+        key: category,
+        label: to(`items.${category}.label`),
+      })),
+    ],
+    [t, to],
+  );
 
   const current = open !== null ? items[open] : null;
 
@@ -190,61 +151,62 @@ export function GalleryGrid() {
         })}
       </div>
 
-      {loaded && items.length === 0 ? (
-        <div className="min-h-44 border-t border-silver pt-3">
-          <p className="text-2xl text-muted">
-            {failed ? t("fallback") : t("empty")}
-          </p>
-        </div>
-      ) : (
-        <div className="columns-2 gap-4 md:columns-3 lg:columns-4 [&>*]:mb-4">
-          {items.map((tile, i) => (
-            <Reveal
-              key={tile.id}
-              className="break-inside-avoid"
-              delay={(i % 8) * 70}
-            >
-              <button
-                type="button"
-                onClick={() => openAt(i)}
-                aria-label={`${t("imageLabel")} ${i + 1}`}
-                className="block w-full rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-              >
-                <ImageFrame
-                  label={t("imageLabel")}
-                  src={tile.thumbUrl}
-                  alt={tile.alt || `${t("imageLabel")} ${i + 1}`}
-                  aspectRatio={tile.aspectRatio}
-                  fit={tile.fit}
-                  hover
-                  flat
-                />
-              </button>
-            </Reveal>
-          ))}
-        </div>
-      )}
-
       {loading ? (
         <p className="mt-8 text-sm text-muted">{t("loading")}</p>
-      ) : nextCursor ? (
-        <button
-          type="button"
-          onClick={() => {
-            if (nextCursor) void fetchImages(nextCursor);
-          }}
-          disabled={loadingMore}
-          className="mt-10 rounded-sm border border-silver px-7 py-3 text-sm tracking-wide text-foreground transition-colors hover:border-accent hover:text-accent disabled:opacity-60"
-        >
-          {loadingMore ? t("loading") : t("loadMore")}
-        </button>
+      ) : null}
+
+      {!loading && items.length === 0 ? (
+        <div className="min-h-44 border-t border-silver pt-3">
+          <p className="text-2xl text-muted">
+            {error ? t("fallback") : t("empty")}
+          </p>
+        </div>
+      ) : null}
+
+      {!loading && items.length > 0 ? (
+        <>
+          <div className="columns-2 gap-4 md:columns-3 lg:columns-4 [&>*]:mb-4">
+            {items.map((image, i) => (
+              <Reveal
+                key={image.id}
+                className="break-inside-avoid"
+                delay={(i % 8) * 70}
+              >
+                <button
+                  type="button"
+                  onClick={() => openAt(i)}
+                  aria-label={image.alt || `${t("imageLabel")} ${i + 1}`}
+                  className="block w-full rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                >
+                  <GalleryPhoto
+                    image={image}
+                    label={`${t("imageLabel")} ${i + 1}`}
+                    index={i}
+                    flat
+                  />
+                </button>
+              </Reveal>
+            ))}
+          </div>
+
+          {cursor ? (
+            <button
+              type="button"
+              onClick={() => void loadPage(filter, cursor)}
+              disabled={loadingMore}
+              className="mt-10 w-full rounded-sm border border-silver px-7 py-3 text-sm tracking-wide text-foreground transition-colors hover:border-accent hover:text-accent disabled:opacity-60"
+            >
+              {loadingMore ? t("loading") : t("loadMore", { count: PAGE_SIZE })}
+            </button>
+          ) : null}
+        </>
       ) : null}
 
       {open !== null && current && (
         <div
           role="dialog"
           aria-modal="true"
-          aria-label={t("imageLabel")}
+          aria-label={current.alt || t("imageLabel")}
           onClick={close}
           className={`lb-overlay fixed inset-0 z-[60] flex items-center justify-center bg-foreground/90 p-4 backdrop-blur-sm sm:p-8 ${
             visible ? "is-open" : ""
@@ -257,11 +219,9 @@ export function GalleryGrid() {
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (current.url) {
-                    void downloadImage(current.url, `bild-${open + 1}.webp`);
-                  }
+                onClick={(event) => {
+                  event.stopPropagation();
+                  void downloadImage(current.url, `bild-${open + 1}.webp`);
                 }}
                 aria-label={t("save")}
                 title={t("save")}
@@ -283,8 +243,8 @@ export function GalleryGrid() {
 
           <button
             type="button"
-            onClick={(e) => {
-              e.stopPropagation();
+            onClick={(event) => {
+              event.stopPropagation();
               show(-1);
             }}
             aria-label={t("prev")}
@@ -294,27 +254,26 @@ export function GalleryGrid() {
           </button>
 
           <div
-            onClick={(e) => e.stopPropagation()}
-            className="lb-panel max-h-[82vh] w-full max-w-3xl"
+            onClick={(event) => event.stopPropagation()}
+            className="lb-panel max-h-[82vh] w-full max-w-5xl"
           >
             <div
-              key={open}
+              key={current.id}
               className={`lb-slide ${dir > 0 ? "from-right" : "from-left"}`}
             >
-              <ImageFrame
-                label={t("imageLabel")}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
                 src={current.url}
                 alt={current.alt || t("imageLabel")}
-                aspect="aspect-[4/3]"
-                fit="contain"
+                className="mx-auto max-h-[82vh] w-auto max-w-full rounded-sm object-contain"
               />
             </div>
           </div>
 
           <button
             type="button"
-            onClick={(e) => {
-              e.stopPropagation();
+            onClick={(event) => {
+              event.stopPropagation();
               show(1);
             }}
             aria-label={t("next")}

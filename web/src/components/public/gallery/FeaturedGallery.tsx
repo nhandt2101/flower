@@ -5,31 +5,24 @@ import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { listImages } from "@/lib/api/images";
 import type { GalleryImage } from "@/lib/api/types";
+import { GalleryPhoto } from "./GalleryPhoto";
 import { Reveal } from "../ui/Reveal";
-import { ImageFrame } from "../ui/ImageFrame";
-import { getGalleryImageLayout } from "./imageLayout";
 
 export function FeaturedGallery() {
   const t = useTranslations("featured");
   const [images, setImages] = useState<GalleryImage[]>([]);
 
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
 
-    listImages({ limit: 3 })
-      .then((page) => {
-        if (!cancelled) setImages(page.items.slice(0, 3));
-      })
+    listImages({ limit: 3 }, controller.signal)
+      .then((data) => setImages(data.items))
       .catch(() => {
-        if (!cancelled) setImages([]);
+        setImages([]);
       });
 
-    return () => {
-      cancelled = true;
-    };
+    return () => controller.abort();
   }, []);
-
-  const slots = images.length > 0 ? images : [0, 1, 2];
 
   return (
     <section className="border-t border-silver-soft bg-surface">
@@ -44,24 +37,16 @@ export function FeaturedGallery() {
         </Reveal>
 
         <div className="mt-14 grid gap-6 sm:grid-cols-2 md:grid-cols-3">
-          {slots.map((item, i) => {
-            const image = typeof item === "number" ? null : item;
-            const key = image ? image.id : `placeholder-${item}`;
-            const layout = image ? getGalleryImageLayout(image, i) : null;
-            return (
-              <Reveal key={key} delay={i * 120}>
-                <ImageFrame
-                  label={t("imageLabel")}
-                  src={image?.thumbUrl}
-                  alt={image?.alt || t("imageLabel")}
-                  aspect={i === 1 ? "aspect-[3/4]" : "aspect-[4/5]"}
-                  aspectRatio={layout?.aspectRatio}
-                  fit={layout?.fit}
-                  hover
-                />
-              </Reveal>
-            );
-          })}
+          {[0, 1, 2].map((i) => (
+            <Reveal key={i} delay={i * 120}>
+              <GalleryPhoto
+                image={images[i]}
+                label={t("imageLabel")}
+                aspect={i === 1 ? "aspect-[3/4]" : "aspect-[4/5]"}
+                index={i}
+              />
+            </Reveal>
+          ))}
         </div>
 
         <Reveal className="mt-12">

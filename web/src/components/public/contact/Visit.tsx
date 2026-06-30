@@ -1,9 +1,20 @@
+"use client";
+
 import { useTranslations } from "next-intl";
+import { useShopSettings } from "@/hooks/useShopSettings";
 import { Reveal } from "../ui/Reveal";
 import { MapEmbed } from "./MapEmbed";
 
 export function Visit() {
   const t = useTranslations("visit");
+  const settings = useShopSettings({
+    storeName: "Tường Vi Flower",
+    phone: t("hotline"),
+    address: t("address"),
+    googleMapsUrl: "https://www.google.com/maps",
+    openingHours: t("hours"),
+    locale: "vi",
+  });
 
   return (
     <section
@@ -26,7 +37,7 @@ export function Visit() {
                   {t("addressLabel")}
                 </dt>
                 <dd className="mt-1 text-base text-foreground">
-                  {t("address")}
+                  {settings.address}
                 </dd>
               </div>
               <div>
@@ -34,7 +45,7 @@ export function Visit() {
                   {t("hotlineLabel")}
                 </dt>
                 <dd className="mt-1 text-base text-foreground">
-                  {t("hotline")}
+                  {settings.phone}
                 </dd>
               </div>
               <div>
@@ -42,13 +53,13 @@ export function Visit() {
                   {t("hoursLabel")}
                 </dt>
                 <dd className="mt-1 whitespace-pre-line text-base text-foreground">
-                  {t("hours")}
+                  {settings.openingHours}
                 </dd>
               </div>
             </dl>
 
             <a
-              href="https://www.google.com/maps"
+              href={settings.googleMapsUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="mt-8 inline-block rounded-sm bg-foreground px-7 py-3 text-sm tracking-wide text-background transition-colors hover:bg-accent-hover"
@@ -58,7 +69,7 @@ export function Visit() {
           </Reveal>
 
           <Reveal delay={120}>
-            <MapEmbed query={t("address")} title={t("mapLabel")} />
+            <MapEmbed query={settings.address} title={t("mapLabel")} />
           </Reveal>
         </div>
       </div>

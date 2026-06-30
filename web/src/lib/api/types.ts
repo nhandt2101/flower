@@ -71,6 +71,7 @@ export interface AdminImage extends GalleryImage {
   objectKey: string;
   createdAt: string;
   sizeBytes: number;
+  status?: "processing" | "active" | "failed";
 }
 
 export interface UploadUrlRequest {
@@ -94,6 +95,17 @@ export interface RegisterImageRequest {
   /** Chosen by the shop owner in the admin upload form. */
   category: ImageCategory;
   alt?: string;
+}
+
+/* ------------------------------ Settings ------------------------------- */
+
+export interface ShopSettings {
+  storeName: string;
+  phone: string;
+  address: string;
+  googleMapsUrl: string;
+  openingHours: string;
+  locale: string;
 }
 
 /* -------------------------------- Errors -------------------------------- */

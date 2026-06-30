@@ -74,14 +74,14 @@ export class FlowerBackendStack extends cdk.Stack {
       },
     });
 
-    const userPool = new cognito.UserPool(this, "AdminUserPool", {
+    const userPool = new cognito.UserPool(this, "AdminUserPoolV2", {
       selfSignUpEnabled: false,
       signInAliases: { email: true },
       accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
       removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
 
-    const userPoolClient = new cognito.UserPoolClient(this, "AdminUserPoolClient", {
+    const userPoolClient = new cognito.UserPoolClient(this, "AdminUserPoolClientV2", {
       userPool,
       authFlows: {
         userPassword: true,
@@ -125,7 +125,8 @@ export class FlowerBackendStack extends cdk.Stack {
       },
     });
     table.grantReadWriteData(api);
-    imageBucket.grantPut(api, "uploads/*");
+    imageBucket.grantReadWrite(api, "uploads/*");
+    imageBucket.grantReadWrite(api, "public/*");
 
     const imageProcessor = new NodejsFunction(this, "ImageProcessorLambda", {
       entry: path.join(__dirname, "../lib/lambda/image-processor/index.ts"),

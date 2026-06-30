@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import {
+  confirmSignIn,
   fetchAuthSession,
   getCurrentUser,
   signIn,
@@ -62,6 +63,14 @@ export function useAuth() {
     return result;
   }
 
+  async function handleConfirmSignIn(challengeResponse: string) {
+    const result = await confirmSignIn({ challengeResponse });
+    if (result.isSignedIn) {
+      await checkUser();
+    }
+    return result;
+  }
+
   async function handleSignOut() {
     await signOut();
     setUser(null);
@@ -77,6 +86,7 @@ export function useAuth() {
     loading,
     checkUser,
     signIn: handleSignIn,
+    confirmSignIn: handleConfirmSignIn,
     signOut: handleSignOut,
     getAccessToken,
   };

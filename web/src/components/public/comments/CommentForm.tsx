@@ -1,27 +1,38 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { useTranslations } from "next-intl";
 import { createComment } from "@/lib/api/comments";
 import { Turnstile } from "./Turnstile";
 
-type Status = "idle" | "submitting" | "done" | "error";
+type Status = "idle" | "submitting" | "done";
 
 export function CommentForm() {
   const t = useTranslations("commentsPage.form");
   const [status, setStatus] = useState<Status>("idle");
   const [captchaToken, setCaptchaToken] = useState("");
   const [captchaKey, setCaptchaKey] = useState(0);
+  const [error, setError] = useState("");
 
-  const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!captchaToken) return;
+  const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError("");
 
-    const form = e.currentTarget;
-    const data = new FormData(form);
-    const name = String(data.get("name") ?? "");
-    const email = String(data.get("email") ?? "");
-    const content = String(data.get("message") ?? "");
+    if (!captchaToken) {
+      setError(t("error"));
+      return;
+    }
+
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    const name = String(formData.get("name") ?? "").trim();
+    const email = String(formData.get("email") ?? "").trim();
+    const content = String(formData.get("message") ?? "").trim();
+
+    if (!name || !email || !content) {
+      setError(t("error"));
+      return;
+    }
 
     setStatus("submitting");
     try {
@@ -31,9 +42,10 @@ export function CommentForm() {
       setCaptchaKey((key) => key + 1);
       setStatus("done");
     } catch {
+      setStatus("idle");
       setCaptchaToken("");
       setCaptchaKey((key) => key + 1);
-      setStatus("error");
+      setError(t("error"));
     }
   };
 
@@ -47,6 +59,7 @@ export function CommentForm() {
           onClick={() => {
             setCaptchaToken("");
             setCaptchaKey((key) => key + 1);
+            setError("");
             setStatus("idle");
           }}
           className="mt-6 text-sm tracking-wide text-foreground hover:text-accent"
@@ -95,7 +108,6 @@ export function CommentForm() {
         </Field>
       </div>
 
-      {/* Cloudflare Turnstile — token verified server-side (Lambda) before write. */}
       <div className="mt-5">
         <Turnstile
           key={captchaKey}
@@ -104,9 +116,7 @@ export function CommentForm() {
         />
       </div>
 
-      {status === "error" ? (
-        <p className="mt-4 text-sm text-red-700">{t("error")}</p>
-      ) : null}
+      {error ? <p className="mt-4 rounded-sm bg-rose-100 px-4 py-3 text-sm text-rose-700">{error}</p> : null}
 
       <button
         type="submit"

@@ -38,11 +38,12 @@ async function processRecord(record: any): Promise<void> {
   }
 
   const head = await s3.send(new HeadObjectCommand({ Bucket: BUCKET, Key: key }));
-  const imageId = head.Metadata?.["image-id"];
-  const createdAt = head.Metadata?.["created-at"];
+  const keyParts = imageIdentityFromKey(key);
+  const imageId = head.Metadata?.["image-id"] ?? keyParts?.imageId;
+  const createdAt = head.Metadata?.["created-at"] ?? keyParts?.createdAt;
   if (!imageId || !createdAt) {
     throw new Error(
-      `Missing x-amz-meta-image-id / x-amz-meta-created-at on ${key}`,
+      `Cannot determine image id / createdAt for ${key}`,
     );
   }
 
@@ -114,6 +115,18 @@ async function processRecord(record: any): Promise<void> {
   console.log(
     `Processed ${key} -> ${fullKey} + ${thumbKey} (${full.info.width}x${full.info.height})`,
   );
+}
+
+function imageIdentityFromKey(key: string) {
+  if (!key.startsWith(UPLOADS_PREFIX)) return null;
+  const fileName = key.slice(UPLOADS_PREFIX.length);
+  const separator = fileName.lastIndexOf("#");
+  if (separator <= 0 || separator === fileName.length - 1) return null;
+
+  return {
+    createdAt: fileName.slice(0, separator),
+    imageId: fileName.slice(separator + 1),
+  };
 }
 
 function requireEnv(name: string): string {
