@@ -73,7 +73,7 @@ export function Occasions() {
         <div
           className={`mt-14 grid gap-10 ${
             hasCompleteImageSet
-              ? "lg:grid-cols-[0.92fr_1.08fr] lg:items-start"
+              ? "lg:grid-cols-[1.05fr_0.95fr] lg:items-start"
               : ""
           }`}
         >
@@ -93,7 +93,7 @@ export function Occasions() {
                     onFocus={() => setActive(service.key)}
                     className={
                       hasCompleteImageSet
-                        ? `group border-b border-silver-soft py-7 transition-colors last:border-b-0 ${
+                        ? `group border-b border-silver-soft py-8 transition-colors last:border-b-0 lg:min-h-40 ${
                             isActive ? "text-foreground" : "text-muted"
                           }`
                         : "group flex border-b border-silver-soft py-8 transition-colors last:border-b-0 md:min-h-[18rem] md:border-b-0 md:border-r md:px-8 md:py-10 md:last:border-r-0"
@@ -148,7 +148,7 @@ export function Occasions() {
                   key={activeService.key}
                   image={activeService.image}
                   label={activeService.label}
-                  aspect="aspect-[5/6]"
+                  aspect="aspect-[6/5]"
                   className="rounded-sm"
                   overlay
                 />
