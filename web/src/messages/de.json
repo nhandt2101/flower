@@ -104,7 +104,8 @@
     "all": "Alle",
     "loading": "Bilder werden geladen…",
     "loadMore": "Weitere Bilder anzeigen",
-    "fallback": "Die Live-Galerie ist gerade nicht erreichbar, es werden Beispielkacheln angezeigt."
+    "empty": "Noch keine Galeriebilder.",
+    "fallback": "Die Live-Galerie ist gerade nicht erreichbar."
   },
   "commentsPage": {
     "eyebrow": "Bewertungen",

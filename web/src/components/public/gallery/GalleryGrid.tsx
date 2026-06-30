@@ -5,19 +5,18 @@ import { useTranslations } from "next-intl";
 import { listImages } from "@/lib/api/images";
 import type { GalleryImage, ImageCategory } from "@/lib/api/types";
 import { ImageFrame } from "../ui/ImageFrame";
+import { Reveal } from "../ui/Reveal";
 
 // Filter tabs map to the shop's occasion categories. "other" images (shop /
 // ambiance) appear only under "all". Keep this in sync with ImageCategory in
 // web/src/lib/api/types.ts and the admin upload category selector.
 const CATEGORIES = ["wedding", "birthday", "funeral"] as const;
-type Category = (typeof CATEGORIES)[number] | "other";
 type Filter = "all" | (typeof CATEGORIES)[number];
 
-// Grid uses thumbUrl, lightbox uses url. Category drives the filter.
+// Grid uses thumbUrl, lightbox uses url.
 type Tile = {
   id: string;
   aspect: string;
-  category: Category;
   url?: string;
   thumbUrl?: string;
   alt?: string;
@@ -28,12 +27,6 @@ const ASPECTS = [
   "aspect-[4/5]", "aspect-[1/1]", "aspect-[2/3]", "aspect-[4/3]", "aspect-[3/4]",
   "aspect-[3/5]", "aspect-[4/5]", "aspect-[1/1]", "aspect-[4/3]", "aspect-[2/3]",
 ];
-const CYCLE: Category[] = ["wedding", "birthday", "funeral", "other"];
-const TILES: Tile[] = ASPECTS.map((aspect, i) => ({
-  id: `placeholder-${i}`,
-  aspect,
-  category: CYCLE[i % CYCLE.length],
-}));
 
 async function downloadImage(url: string, filename: string) {
   try {
@@ -64,24 +57,21 @@ export function GalleryGrid() {
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
   const [open, setOpen] = useState<number | null>(null);
   const [visible, setVisible] = useState(false); // drives enter/exit fade+scale
   const [dir, setDir] = useState<1 | -1>(1); // slide direction on switch
 
   const items = useMemo<Tile[]>(() => {
-    if (images.length === 0) {
-      return filter === "all" ? TILES : TILES.filter((tile) => tile.category === filter);
-    }
     return images.map((image, i) => ({
       id: image.id,
       aspect: ASPECTS[i % ASPECTS.length],
-      category: image.category,
       url: image.url,
       thumbUrl: image.thumbUrl,
       alt: image.alt,
     }));
-  }, [filter, images]);
+  }, [images]);
 
   const fetchImages = useCallback(
     async (cursor?: string) => {
@@ -89,6 +79,7 @@ export function GalleryGrid() {
         setLoadingMore(true);
       } else {
         setLoading(true);
+        setLoaded(false);
         setFailed(false);
       }
 
@@ -109,6 +100,9 @@ export function GalleryGrid() {
       } finally {
         setLoading(false);
         setLoadingMore(false);
+        if (!cursor) {
+          setLoaded(true);
+        }
       }
     },
     [filter],
@@ -160,6 +154,9 @@ export function GalleryGrid() {
     setVisible(false);
     setImages([]);
     setNextCursor(null);
+    setLoaded(false);
+    setLoading(true);
+    setFailed(false);
     setFilter(f);
   };
 
@@ -193,30 +190,39 @@ export function GalleryGrid() {
         })}
       </div>
 
-      {failed ? (
-        <p className="mb-6 text-sm text-muted">{t("fallback")}</p>
-      ) : null}
-
-      <div className="columns-2 gap-4 md:columns-3 lg:columns-4 [&>*]:mb-4">
-        {items.map((tile, i) => (
-          <button
-            key={tile.id}
-            type="button"
-            onClick={() => openAt(i)}
-            aria-label={`${t("imageLabel")} ${i + 1}`}
-            className="block w-full break-inside-avoid rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-          >
-            <ImageFrame
-              label={t("imageLabel")}
-              src={tile.thumbUrl}
-              alt={tile.alt || `${t("imageLabel")} ${i + 1}`}
-              aspect={tile.aspect}
-              hover
-              flat
-            />
-          </button>
-        ))}
-      </div>
+      {loaded && items.length === 0 ? (
+        <div className="min-h-44 border-t border-silver pt-3">
+          <p className="text-2xl text-muted">
+            {failed ? t("fallback") : t("empty")}
+          </p>
+        </div>
+      ) : (
+        <div className="columns-2 gap-4 md:columns-3 lg:columns-4 [&>*]:mb-4">
+          {items.map((tile, i) => (
+            <Reveal
+              key={tile.id}
+              className="break-inside-avoid"
+              delay={(i % 8) * 70}
+            >
+              <button
+                type="button"
+                onClick={() => openAt(i)}
+                aria-label={`${t("imageLabel")} ${i + 1}`}
+                className="block w-full rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                <ImageFrame
+                  label={t("imageLabel")}
+                  src={tile.thumbUrl}
+                  alt={tile.alt || `${t("imageLabel")} ${i + 1}`}
+                  aspect={tile.aspect}
+                  hover
+                  flat
+                />
+              </button>
+            </Reveal>
+          ))}
+        </div>
+      )}
 
       {loading ? (
         <p className="mt-8 text-sm text-muted">{t("loading")}</p>

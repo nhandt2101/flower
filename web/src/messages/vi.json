@@ -104,7 +104,8 @@
     "all": "Tất cả",
     "loading": "Đang tải ảnh…",
     "loadMore": "Xem thêm ảnh",
-    "fallback": "Thư viện ảnh thật hiện chưa tải được, đang hiển thị ảnh mẫu."
+    "empty": "Chưa có ảnh trong thư viện.",
+    "fallback": "Thư viện ảnh thật hiện chưa tải được."
   },
   "commentsPage": {
     "eyebrow": "Bình luận",

@@ -104,7 +104,8 @@
     "all": "All",
     "loading": "Loading photos…",
     "loadMore": "Show more photos",
-    "fallback": "Live gallery is unavailable right now, showing sample tiles."
+    "empty": "No gallery images yet.",
+    "fallback": "Live gallery is unavailable right now."
   },
   "commentsPage": {
     "eyebrow": "Reviews",
