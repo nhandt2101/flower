@@ -21,7 +21,7 @@ export function ContactDetails() {
       <Reveal>
         <dl className="space-y-8">
           <Detail label={t("addressLabel")} value={settings.address} />
-          <Detail label={t("hotlineLabel")} value={settings.phone} />
+          <Detail label={t("hotlineLabel")} value={settings.phone} multiline />
           <Detail label={t("hoursLabel")} value={settings.openingHours} multiline />
         </dl>
 

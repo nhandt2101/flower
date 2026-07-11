@@ -64,7 +64,7 @@ export function About() {
               <dt className="text-xs uppercase tracking-[0.15em] text-muted">
                 {t("hotlineLabel")}
               </dt>
-              <dd className="mt-1 text-foreground">{settings.phone}</dd>
+              <dd className="mt-1 whitespace-pre-line text-foreground">{settings.phone}</dd>
             </div>
             <div>
               <dt className="text-xs uppercase tracking-[0.15em] text-muted">

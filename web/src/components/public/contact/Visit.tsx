@@ -44,7 +44,7 @@ export function Visit() {
                 <dt className="text-xs uppercase tracking-[0.15em] text-muted">
                   {t("hotlineLabel")}
                 </dt>
-                <dd className="mt-1 text-base text-foreground">
+                <dd className="mt-1 whitespace-pre-line text-base text-foreground">
                   {settings.phone}
                 </dd>
               </div>

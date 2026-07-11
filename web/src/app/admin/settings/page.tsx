@@ -9,7 +9,7 @@ import type { ShopSettings } from "@/lib/api/types";
 
 const defaultSettings: ShopSettings = {
   storeName: "Tuong Vi Flower",
-  phone: "+49 171 123 4567",
+  phone: "+49 30 1234 5678\n+49 171 123 4567",
   address: "Hauptstrasse 14, 10115 Berlin",
   googleMapsUrl: "https://www.google.com/maps/place/Berlin",
   openingHours: "Monday - Saturday: 8:00 - 19:00\nSunday: 9:00 - 17:00",
@@ -112,10 +112,11 @@ export default function AdminSettingsPage() {
                   />
                 </label>
                 <label className="space-y-2 text-sm font-medium text-foreground">
-                  Phone
-                  <input
+                  Phone numbers
+                  <textarea
                     value={settings.phone}
                     onChange={(event) => updateField("phone", event.target.value)}
+                    rows={3}
                     className="w-full rounded-2xl border border-silver-soft bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
                   />
                 </label>

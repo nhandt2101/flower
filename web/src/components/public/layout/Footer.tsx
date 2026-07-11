@@ -48,7 +48,7 @@ export function Footer() {
           <div className="flex flex-col gap-4">
             <LanguageSwitcher />
             <p className="text-sm text-muted">{settings.address}</p>
-            <p className="text-sm text-muted">{settings.phone}</p>
+            <p className="whitespace-pre-line text-sm text-muted">{settings.phone}</p>
           </div>
         </div>
 
