@@ -1,8 +1,8 @@
 import { routing } from "@/i18n/routing";
 
-/** Public site URL. Set NEXT_PUBLIC_SITE_URL in the environment before launch. */
+/** Public site URL. Can be overridden with NEXT_PUBLIC_SITE_URL per environment. */
 export const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL ?? "https://example.com";
+  process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.blumenngoclan.com";
 
 /**
  * Builds canonical + hreflang alternates for a given page path (no locale
